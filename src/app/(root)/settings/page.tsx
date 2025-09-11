@@ -148,7 +148,7 @@ const SettingsPageContent = () => {
     
     // Try to go back to the previous page, or fallback to home
     if (window.history.length > 1) {
-      window.location.href = '/chat/default';
+      window.history.back();
     }
   };
 
