@@ -197,19 +197,19 @@ Would you like me to elaborate on any specific aspect of your question?`;
                 Guest users have limited requests.
               </p>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left max-w-3xl mx-auto">
-                <div className="bg-[#2d2d2d] rounded-lg p-5 border border-gray-700 hover:border-gray-600 transition-colors">
+                <div className="bg-[#212121] rounded-lg p-5 border border-gray-700 hover:border-gray-600 transition-colors">
                   <h3 className="font-semibold text-white mb-3">Examples</h3>
                   <p className="text-sm text-gray-400">
                     &ldquo;Explain quantum computing in simple terms&rdquo;
                   </p>
                 </div>
-                <div className="bg-[#2d2d2d] rounded-lg p-5 border border-gray-700 hover:border-gray-600 transition-colors">
+                <div className="bg-[#212121] rounded-lg p-5 border border-gray-700 hover:border-gray-600 transition-colors">
                   <h3 className="font-semibold text-white mb-3">Capabilities</h3>
                   <p className="text-sm text-gray-400">
                     Answers questions and assists with tasks
                   </p>
                 </div>
-                <div className="bg-[#2d2d2d] rounded-lg p-5 border border-gray-700 hover:border-gray-600 transition-colors">
+                <div className="bg-[#212121] rounded-lg p-5 border border-gray-700 hover:border-gray-600 transition-colors">
                   <h3 className="font-semibold text-white mb-3">Limitations</h3>
                   <p className="text-sm text-gray-400">
                     Guest mode: Limited requests, no history

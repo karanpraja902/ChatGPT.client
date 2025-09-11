@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Check, Crown, Zap, Star, Settings, User, Bell, Shield, CreditCard, ArrowLeft, Loader2, Mail, Calendar, Clock } from 'lucide-react';
 import { StripeService } from '@/services/api/stripe';
 import { UserApiService } from '@/services/api/user';
@@ -28,7 +28,8 @@ const SettingsPageContent = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState('overview');
-  const {subscription} = useSubscription();
+  const {subscription, refreshSubscription} = useSubscription();
+  const params = useParams();
   // Use the actual logged-in user ID instead of static ID
   const currentUserId = userId;
 
@@ -37,6 +38,7 @@ const SettingsPageContent = () => {
     try {
       // Fetch subscription status
       if (currentUserId) {
+        refreshSubscription()
         // setsubscription(subscription as subscription);
         // const subscriptionResponse = await StripeService.getsubscription(currentUserId);
         // console.log('Subscription status refreshed:', subscriptionResponse);
@@ -57,7 +59,8 @@ const SettingsPageContent = () => {
       try {
         setLoading(true);
         setError(null);
-        if(!subscription){
+        if(!subscription||searchParams.get('success')||searchParams.get('canceled')){
+          console.log('Refreshing subscription data');
           await refreshSubscriptionData();
         }
         // await refreshSubscriptionData();
@@ -142,14 +145,16 @@ const SettingsPageContent = () => {
   }, [searchParams, router, currentUserId]);
 
   const handleBackToChat = () => {
+    
     // Try to go back to the previous page, or fallback to home
     if (window.history.length > 1) {
-      window.history.back();
+      window.location.href = '/chat/default';
     }
   };
 
   const handleSubscriptionClick = async (planKey: string, planName: string) => {
     try {
+      console.log('Handling subscription click for', planKey);
       setLoadingPlan(planKey);
       
       // Different handling for Pro Trial vs paid plans
@@ -358,7 +363,7 @@ const SettingsPageContent = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-700/80 flex items-center justify-center">
+      <div className="min-h-screen bg-[#212121] flex items-center justify-center">
         <div className="text-center">
           <div className="text-red-400 mb-4"></div>
           <p className="text-gray-100 mb-4">{error}</p>
@@ -374,9 +379,9 @@ const SettingsPageContent = () => {
   }
 
   return (
-      <div className="bg-gray-800/90">
+      <div className="bg-[#212121]">
       {/* Header with back button - no sidebar */}
-      <header className="sticky top-0 bg-gray-800/95 z-10 flex h-16 shrink-0 items-center gap-4 border-b border-gray-600 px-4 md:px-6">
+      <header className="sticky top-0 bg-[#212121] z-10 flex h-16 shrink-0 items-center gap-4 border-b border-gray-600 px-4 md:px-6">
         <button
           onClick={handleBackToChat}
           className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-100 hover:text-gray-200 hover:bg-gray-600 rounded-lg transition-colors"
@@ -388,13 +393,13 @@ const SettingsPageContent = () => {
       </header>
 
       {/* Main Content - Full Width with Responsive Layout */}
-      {user && <div className="flex-1 overflow-auto bg-gray-800/90">
+      {user && <div className="flex-1 overflow-auto bg-[#212121]">
         <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8">
           <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
             
             {/* Left Sidebar Menu - Responsive */}
             <div className="lg:w-64 lg:flex-shrink-0">
-              <div className="bg-gray-900/90 rounded-xl p-4 lg:p-6 border border-gray-600">
+              <div className="bg-[#212121] rounded-xl p-4 lg:p-6 border border-gray-600">
                 <div className="mb-6">
                   {/* User Profile Section */}
                   <div className="flex items-center gap-3 mb-4">

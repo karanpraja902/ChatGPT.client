@@ -239,12 +239,12 @@ export default function Sidebar({
       <>
         {/* Backdrop */}
         <div 
-          className="fixed inset-0  bg-[#222222] bg-opacity-50 z-40 sm:hidden md:hidden lg:hidden 2xl:hidden xl:hidden"
+          className="fixed inset-0  bg-[#212121] bg-opacity-50 z-40 sm:hidden md:hidden lg:hidden 2xl:hidden xl:hidden"
           onClick={onToggle}
         />
         
         {/* Sidebar overlay */}
-        <div className={`fixed top-0 left-0 h-full bg-[#222222] border border-gray-700 backdrop-blur-sm z-50 transition-transform duration-300 ease-in-out ${
+        <div className={`fixed top-0 left-0 h-full bg-[#212121] border border-gray-700 backdrop-blur-sm z-50 transition-transform duration-300 ease-in-out ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         } w-80 max-w-[85vw] lg:hidden`}>
           {/* Mobile header */}
@@ -397,7 +397,7 @@ export default function Sidebar({
               </button>
 
               {userMenuOpen && (
-                <div className="absolute bottom-full left-0 mb-1 w-48 bg-[#222222] rounded-md shadow-lg border border-gray-600 py-1 z-10">
+                <div className="absolute bottom-full left-0 mb-1 w-48 bg-[#212121] rounded-md shadow-lg border border-gray-600 py-1 z-10">
                   <div className="px-4 py-2 border-b border-gray-600">
                     <p className="text-sm font-medium text-gray-300">{user?.name || user?.email || 'User'}</p>
                     <p className="text-xs text-gray-400">{getCurrentPlanName()}</p>
@@ -493,7 +493,7 @@ export default function Sidebar({
 
   // Desktop sidebar - only shown on laptop+ screens (unchanged)
   return (
-    <div className={`hidden lg:block lg:bg-[#222222] border border-gray-700 transition-all duration-300 ease-in-out ${
+    <div className={`hidden lg:block lg:bg-[#212121] border border-gray-700 transition-all duration-300 ease-in-out ${
       isOpen ? 'w-64' : 'w-20'
     } flex flex-col h-full`}>
       {/* Sidebar header */}
@@ -510,7 +510,7 @@ export default function Sidebar({
           )}
         <button 
           onClick={onToggle}
-          className={`p-1 justify-center rounded-md lg:bg-[#222222] transition-all duration-300 px-2 text-gray-300 hover:bg-gray-600 ${isOpen && 'ml-auto mb-2'}`}
+          className={`p-1 justify-center rounded-md lg:bg-[#212121] transition-all duration-300 px-2 text-gray-300 hover:bg-gray-600 ${isOpen && 'ml-auto mb-2'}`}
         >
           {isOpen ? <BsLayoutSidebar className="w-6 h-6" /> : <img 
                 src="/chatgpt.svg" 
@@ -661,7 +661,7 @@ export default function Sidebar({
               </button>}
 
               {userMenuOpen && (
-                <div className="absolute bottom-full left-0 mb-1 w-48 bg-[#222222] rounded-md shadow-lg border border-gray-600 py-1 z-10">
+                <div className="absolute bottom-full left-0 mb-1 w-48 bg-[#212121] rounded-md shadow-lg border border-gray-600 py-1 z-10">
                   <div className="px-4 py-2 border-b border-gray-600">
                     <p className="text-sm font-medium text-gray-300">{user?.name || user?.email || 'User'}</p>
                     <p className="text-xs text-gray-400">{getCurrentPlanName()}</p>
