@@ -1,13 +1,11 @@
-# DeepSeek AI Client
+# ChatGPT Client
 
 A modern, intelligent AI chat application built with Next.js 15, React 19, and TypeScript. This client application provides a sleek interface for interacting with multiple AI models, document analysis, web search, and more.
+-For backend visit - https://github.com/karanpraja902/ChatGPT.server
 
 ## 🚀 Features
 
-### 🧠 **Multi-Model AI Integration**
-- Access to cutting-edge AI models including GPT-4, Claude, Gemini, and more
-- OpenRouter integration for seamless model switching
-- Real-time AI conversations with context awareness
+
 
 ### 💬 **Intelligent Chat System**
 - Natural, context-aware conversations
@@ -66,7 +64,7 @@ A modern, intelligent AI chat application built with Next.js 15, React 19, and T
 ### **AI & ML Integration**
 - **AI SDK** - Vercel AI SDK for AI integration
 - **LangChain** - AI application framework
-- **OpenRouter** - Multi-model AI provider
+
 - **Google AI** - Gemini model integration
 
 ### **File & Media**
