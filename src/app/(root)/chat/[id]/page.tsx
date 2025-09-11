@@ -2182,15 +2182,7 @@ useEffect(() => {
           </div>
         )}
 
-        {/* Auto-scroll indicator during streaming */}
-        {status === 'streaming' && !userScrolledUp && (
-          <div className="flex justify-center mb-2 px-4">
-            <div className="px-3 py-1 bg-gray-500 text-white text-xs rounded-full flex items-center gap-1 animate-pulse">
-              <span className="w-2 h-2 bg-green-500 rounded-full animate-bounce"></span>
-              <span className="hidden sm:inline">Auto-scrolling</span>
-            </div>
-          </div>
-        )}
+       
  </div>} 
         {/* Input Form - Always fixed at bottom */}
         
