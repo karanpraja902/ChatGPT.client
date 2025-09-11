@@ -53,9 +53,9 @@ RENDER_API_KEY       - Your Render API key
 
 1. Go to **Settings** → **Branches**
 2. Add rule for `main` branch:
-   -  Require status checks to pass before merging
-   -  Require branches to be up to date before merging
-   -  Select the following status checks:
+   - ✅ Require status checks to pass before merging
+   - ✅ Require branches to be up to date before merging
+   - ✅ Select the following status checks:
      - `Client CI / test`
      - `Server CI / test`
      - `Combined CI / client-ci`

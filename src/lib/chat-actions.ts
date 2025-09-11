@@ -62,7 +62,9 @@ const getAuthHeaders = async () => {
 
 export async function createChatAction(): Promise<ChatResponse> {
   try {
+    console.log("createChatAction");
     const headers = await getAuthHeaders();
+    console.log("createChatAction headers:", headers);
     
     const response = await fetch(`${API_BASE_URL}/api/chat`, {
       method: 'POST',
@@ -76,6 +78,7 @@ export async function createChatAction(): Promise<ChatResponse> {
       throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
     }
 
+    console.log("createChatAction response:", response);
     return await response.json();
   } catch (error) {
     console.error('Create chat error:', error);
@@ -88,7 +91,9 @@ export async function createChatAction(): Promise<ChatResponse> {
 
 export async function getChatAction(chatId: string): Promise<ChatResponse> {
   try {
+    console.log("getChatAction chatId:", {chatId:chatId});
     const headers = await getAuthHeaders();
+    console.log("getChatAction headers:", headers);
     const response = await fetch(`${API_BASE_URL}/api/chat/${chatId}`, {
       method: 'GET',
       headers,
@@ -144,6 +149,8 @@ export async function addMessageAction(
   metadata?: any
 ): Promise<ChatResponse> {
   try {
+    console.log("addMessageAction");
+    console.log("addMessageAction chatId:", {chatId:chatId}, {role:role}, {content:content}, {files:files}, {parts:parts}, {metadata:metadata});
     const headers = await getAuthHeaders();
     
     const messageData = { 
@@ -153,6 +160,7 @@ export async function addMessageAction(
       parts: parts || [], 
       metadata: metadata || {} 
     };
+    console.log("addMessageAction messageData:", messageData);
     const response = await fetch(`${API_BASE_URL}/api/chat/${chatId}/messages`, {
       method: 'POST',
       headers,
@@ -229,7 +237,9 @@ export async function deleteChatAction(chatId: string): Promise<ChatResponse> {
 
 export async function getChatMessagesAction(chatId: string): Promise<ChatResponse> {
   try {
+    console.log("getChatMessagesAction chatId:", {chatId:chatId});
     const headers = await getAuthHeaders();
+    console.log("getChatMessagesAction headers:", headers);
     const response = await fetch(`${API_BASE_URL}/api/chat/${chatId}/messages`, {
       method: 'GET',
       headers,
@@ -368,6 +378,7 @@ export async function parseStreamingResponseAction(
 
 export async function deleteAllChatsAction(): Promise<ChatResponse> {
   try {
+    console.log("deleteAllChatsAction");
     const headers = await getAuthHeaders();
     
     const response = await fetch(`${API_BASE_URL}/api/chat`, {
@@ -375,6 +386,7 @@ export async function deleteAllChatsAction(): Promise<ChatResponse> {
       headers,
       credentials: 'include',
     });
+console.log("deleteAllChatsAction response:", response);
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);

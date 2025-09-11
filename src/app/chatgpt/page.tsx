@@ -31,6 +31,8 @@ export default function ChatGPTPage() {
   }, [isAuthenticated, isLoading]);
 
   const handleSendMessage = async (content: string, attachments?: any[]) => {
+    console.log('handleSendMessage called with:', content);
+    console.log('Current state - isAuthenticated:', isAuthenticated, 'isGuest:', isGuest, 'requestCount:', requestCount);
     
     // Allow guest users to chat with limitations
     if (!isAuthenticated && isGuest && requestCount >= MAX_GUEST_REQUESTS) {
@@ -46,6 +48,7 @@ export default function ChatGPTPage() {
       createdAt: new Date()
     };
 
+    console.log('Sending message to chat container:', newMessage);
     
     if (chatContainerRef.current) {
       await chatContainerRef.current.sendMessage(newMessage);
@@ -283,7 +286,7 @@ export default function ChatGPTPage() {
                             </>
                           ) : (
                             <>
-                              You&apos;ve reached the free message limit.
+                              You've reached the free message limit.
                               <button
                                 onClick={() => setShowLoginDialog(true)}
                                 className="ml-2 text-blue-400 hover:text-blue-300 underline"

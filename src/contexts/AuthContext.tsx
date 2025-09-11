@@ -39,12 +39,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const refreshUser = async () => {
     try {
+      console.log('AuthContext: Refreshing user...');
+      console.log('AuthContext: Current cookies:', document.cookie);
       
       const response = await AuthClient.getCurrentUser();
+      console.log('AuthContext: API response:', response);
       
       if (response.success && response.data?.user) {
+        console.log('AuthContext: Setting user:', response.data.user);
         setUser(response.data.user);
       } else {
+        console.log('AuthContext: No user data in response, clearing user');
         setUser(null);
         throw new Error('No user data received');
       }

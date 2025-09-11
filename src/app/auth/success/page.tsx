@@ -3,7 +3,6 @@
 import React, { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../../../contexts/AuthContext';
-import { Loader } from 'lucide-react';
 
 function AuthSuccessContent() {
   const router = useRouter();
@@ -13,6 +12,7 @@ function AuthSuccessContent() {
   const [debugInfo, setDebugInfo] = useState<string[]>([]);
 
   const addDebugInfo = (info: string) => {
+    console.log(info);
     setDebugInfo(prev => [...prev, `${new Date().toLocaleTimeString()}: ${info}`]);
   };
 
@@ -22,18 +22,37 @@ function AuthSuccessContent() {
         const oauthProvider = searchParams.get('oauth');
         const timestamp = searchParams.get('t');
         
+        addDebugInfo(`Auth success page: OAuth=${oauthProvider}, timestamp=${timestamp}`);
+        addDebugInfo('Starting user refresh...');
+        
+        // Increased delay for better cookie propagation, especially on slower networks
+        const delay = retryCount === 0 ? 2000 : 1000 * (retryCount + 1);
+        addDebugInfo(`Waiting ${delay}ms for cookie propagation...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        
+        // Check if cookies are available in the browser
+        const cookieExists = document.cookie.includes('auth_token');
+        addDebugInfo(`Cookie check: auth_token ${cookieExists ? 'found' : 'not found'} in document.cookie`);
+        
+        // Refresh user data from the secure HTTP-only cookie
         await refreshUser();
         
+        addDebugInfo('User refresh completed successfully, redirecting...');
+        
+        // Use window.location.href for a clean redirect that won't trigger middleware loops
         window.location.href = '/chat/new';
       } catch (error) {
         console.error('Auth success handling failed:', error);
-  
+        addDebugInfo(`Auth refresh failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        
+        // Retry logic for transient network issues
         if (retryCount < 3) {
-
+          addDebugInfo(`Retrying... (attempt ${retryCount + 1}/3)`);
           setRetryCount(prev => prev + 1);
-          return;
+          return; // This will trigger useEffect again due to retryCount change
         }
         
+        // After 3 retries, redirect to sign-in with detailed error info
         const errorDetails = encodeURIComponent(`auth_failed_after_${retryCount + 1}_retries`);
         window.location.href = `/sign-in?error=${errorDetails}`;
       }
@@ -43,31 +62,31 @@ function AuthSuccessContent() {
   }, [refreshUser, searchParams, retryCount]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-900 p-4">
-      <div className="max-w-md w-full bg-gray-900 rounded-lg shadow-lg p-6 flex flex-col">
-
-        <div className="mb-4 self-center">
-         <Loader className="w-12 h-12 animate-spin text-white" />
-        </div>
-        <div className="mb-3 text-center text-white font-semibold text-lg">
-          Authentication Successful!
-        </div>
-        <div className="mb-6 text-center text-gray-300 text-sm">
-          {retryCount > 0
-            ? `Retrying authentication... (${retryCount}/3)`
-            : 'Setting up your session...'}
-        </div>
-        <div className="space-y-2 max-h-60 overflow-y-auto px-2">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">
+            Authentication successful!
+          </h2>
+          <p className="text-gray-600 mb-4">
+            {retryCount > 0 
+              ? `Retrying authentication... (${retryCount}/3)` 
+              : 'Setting up your session...'}
+          </p>
+          
+          {/* Debug information - only show in development or after retries */}
           {(process.env.NODE_ENV === 'development' || retryCount > 0) && debugInfo.length > 0 && (
-            debugInfo.map((info, index) => (
-              <div
-                key={index}
-                className="bg-gray-700 text-gray-300 rounded-lg p-3 text-xs font-mono break-all"
-                style={{ wordWrap: 'break-word' }}
-              >
-                {info}
-              </div>
-            ))
+            <div className="mt-6 text-left">
+              <details className="text-xs text-gray-500">
+                <summary className="cursor-pointer font-medium mb-2">Debug Information</summary>
+                <div className="bg-gray-100 p-3 rounded max-h-40 overflow-y-auto">
+                  {debugInfo.map((info, index) => (
+                    <div key={index} className="mb-1">{info}</div>
+                  ))}
+                </div>
+              </details>
+            </div>
           )}
         </div>
       </div>
@@ -77,11 +96,15 @@ function AuthSuccessContent() {
 
 function LoadingFallback() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-900 p-4">
-      <div className="max-w-md w-full bg-[#343541] rounded-lg shadow-lg p-6 text-center">
-        <div className="w-12 h-12 border-4 border-t-4 border-t-white border-white rounded-full animate-spin mx-auto mb-4"></div>
-        <h2 className="text-xl font-semibold text-white mb-2">Loading authentication...</h2>
-        <p className="text-gray-400">Please wait while we set up your session.</p>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">
+            Loading authentication...
+          </h2>
+          <p className="text-gray-600">Please wait while we set up your session.</p>
+        </div>
       </div>
     </div>
   );

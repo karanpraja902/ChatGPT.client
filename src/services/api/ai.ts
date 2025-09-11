@@ -158,6 +158,7 @@ export class AiApiService {
 
   static async webSearchWithAI(params: WebSearchWithAIRequest): Promise<WebSearchWithAIResponse> {
     try {
+      console.log("webSearchWithAI params:", params);
       const response = await fetch(`${API_BASE_URL}/api/ai/web-search`, {
         method: 'POST',
         headers: {
@@ -186,6 +187,7 @@ export class AiApiService {
 
   static async analyzeDocument(params: DocumentAnalysisRequest): Promise<DocumentAnalysisResponse> {
     try {
+      console.log("analyzeDocument params:", params);
       const response = await fetch(`${API_BASE_URL}/api/pdf/analyze`, {
         method: 'POST', 
         headers: {
@@ -214,6 +216,7 @@ export class AiApiService {
 
   static async getWeather(params: WeatherRequest): Promise<WeatherResponse> {
     try {
+      console.log("getWeather params:", params);
       const response = await fetch(`${API_BASE_URL}/api/weather/with-ai`, {
         method: 'POST',
         headers: {

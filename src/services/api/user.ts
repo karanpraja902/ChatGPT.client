@@ -53,6 +53,7 @@ export class UserApiService {
     trialEnd?: Date;
   }) {
     try {
+      console.log('APIpdateUserSubscription', userId, subscriptionData);
       const response = await fetch(`${API_BASE_URL}/api/user/${userId}`, {
         method: 'PUT',
         headers: {
@@ -61,6 +62,7 @@ export class UserApiService {
         body: JSON.stringify({ subscription: subscriptionData }),
         credentials: 'include',
       });
+console.log('APIUpdateUserSubscriptionresponse', response);
       if (!response.ok) {
         throw new Error('Failed to update user subscription');
       }

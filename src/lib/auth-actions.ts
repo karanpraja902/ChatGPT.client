@@ -65,25 +65,26 @@ export async function initializeStaticUserAction(): Promise<AuthResponse> {
   }
 }
 
-
-export async function checkEmailAction(email: string): Promise<AuthResponse & { exists?: boolean; hasPassword?: boolean }> {
+export async function getUserWithMemoryAction(userId: string): Promise<AuthResponse> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/auth/check-email`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+    const headers = await getAuthHeaders();
+    
+    const response = await fetch(`${API_BASE_URL}/api/auth/user?userId=${userId}`, {
+      method: 'GET',
+      headers,
       credentials: 'include',
-      body: JSON.stringify({ email }),
     });
 
-    const data = await response.json();
-    return data;
+    if (!response.ok) {
+      throw new Error('Failed to get user with memory');
+    }
+
+    return await response.json();
   } catch (error) {
-    console.error('Check email error:', error);
+    console.error('Get user with memory error:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to check email'
+      error: error instanceof Error ? error.message : 'Failed to get user'
     };
   }
 }

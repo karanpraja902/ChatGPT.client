@@ -2,9 +2,9 @@
 import { uploadFilesClient, deleteFileFromCloudinary, UploadedClientFile } from '@/services/api/cloudinary';
 import { PdfApiService, AiApiService } from '@/services/api';
 import type { ModelInfo } from '@/services/api/ai';
-import { getContextStatus, calculateMessageTokens } from '@/services/api/context-manager';
+import { getContextStatus } from '@/services/api/context-manager';
 import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
-import { Paperclip, X, StopCircle, Loader2, Globe, Image as ImageIcon, Code2, FileText, Table, CloudSun, FlaskConical, Wrench, SlidersHorizontal, Settings, Search, Palette, Square, PlusIcon } from 'lucide-react';
+import { Paperclip, X, StopCircle, Loader2, Globe, Image as ImageIcon, Code2, FileText, Table, CloudSun, FlaskConical, Wrench, SlidersHorizontal, Settings, Search, Palette, Square } from 'lucide-react';
 import DictationButton from '../ui/DictationButton';
 import { LuCpu } from "react-icons/lu"
 import { useSubscription } from '@/contexts/SubscriptionContext';
@@ -56,16 +56,23 @@ export default function ChatInput({
   
   // Update access states when subscription context changes
   useEffect(() => {
+    console.log('🔄 Updating access states:', { isLoading, subscription });
     
     if (!isLoading) {
       const advancedAccess = hasAccess('advanced_tools');
       const openRouterAccess = hasAccess('openrouter');
       
+      console.log('🔄 Setting access states:', { 
+        advancedAccess, 
+        openRouterAccess,
+        subscriptionPlan: subscription?.plan 
+      });
       
       setHasAdvancedToolsAccess(advancedAccess);
       setHasOpenRouterAccess(openRouterAccess);
     } else {
       // Reset to false while loading
+      console.log('🔄 Resetting access states (loading)');
       setHasAdvancedToolsAccess(false);
       setHasOpenRouterAccess(false);
     }
@@ -148,10 +155,9 @@ export default function ChatInput({
   }, [isRecording, isProcessingPdf, documentMode, imageGenerationMode, weatherMode]);
 
   const containerClassName = useMemo(() => {
-    // const baseClass ="flex flex-col sm:flex-col gap-1 bg-[#333333] sm:gap-2 md:gap-3 p-1.5 sm:p-2 md:p-3 backdrop-blur-sm rounded-lg sm:rounded-xl md:rounded-4xl shadow-3xl  transition-all duration-300 ";
-    const baseClass ="relative w-full px-4 py-4 pr-5 bg-[#2f2f2f] rounded-2xl text-white text-lg placeholder-gray-400 focus:outline-none focus:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+    const baseClass = "flex flex-col sm:flex-row gap-1 sm:gap-2 md:gap-3 p-1.5 sm:p-2 md:p-3 backdrop-blur-sm rounded-lg sm:rounded-xl md:rounded-2xl shadow-xl border border-4 transition-all duration-300 ";
     if (isRecording) return `${baseClass} border-red-300 bg-gray-500/80`;
-    if (documentMode) return `${baseClass} border-blue-300 bg-gray-500/80`;
+    if (documentMode) return `${baseClass} border-blue-300 bg-blue-50/80`;
     if (imageGenerationMode) return `${baseClass} border-purple-300 bg-purple-50/80`;
     if (weatherMode) return `${baseClass} border-cyan-300 bg-cyan-50/80`;
     return `${baseClass} border-white/20`;
@@ -185,6 +191,7 @@ export default function ChatInput({
 
   // Debug model changes
   useEffect(() => {
+    console.log('🔄 Model changed in ChatInput:', model);
   }, [model]);
 
   const modelOptions = useMemo(() => 
@@ -219,14 +226,17 @@ export default function ChatInput({
   };
 
   const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    console.log("handleFileChange")
     if (e.target.files) {
       setPreFile(Array.from(e.target.files))
+      console.log("imageFile:",Array.from(e.target.files))
       try{
       setIsUploading(true)
       const upload = await uploadFilesClient(Array.from(e.target.files))|| [];
       if(upload){
         setUploadedFileMetadata(upload)
         setUploadedFiles(upload);
+        console.log("uploaded:",upload)
         setIsUploading(false)
         return;
       }
@@ -244,12 +254,14 @@ export default function ChatInput({
       setIsUploading(false)
       return;
       }
+      console.log("ChatInputFiles:",e.target.files)
       return;
     }
   }, [setUploadedFiles]);
 
   const handleDocumentChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     setError('')
+    console.log("handleDocumentChange")
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
       setPreFile([file]);
@@ -259,6 +271,7 @@ export default function ChatInput({
       setIsProcessingPdf(true); // Start PDF processing state
 
       try {
+        console.log("uploading file to cloudinary", file);
         // First, upload the PDF to Cloudinary
         const upload = await uploadFilesClient([file]);
         console.log("upload:", upload);
@@ -276,6 +289,7 @@ export default function ChatInput({
           setIsProcessingPdf(false); // End PDF processing state
           setUploadedFileMetadata([uploadedFile]);
           setUploadedFiles([uploadedFile]);
+          console.log("uploaded and analyzed document:", uploadedFile);
         }
       } catch (error: any) {
         console.error("PDF analysis error:", error);
@@ -300,7 +314,7 @@ export default function ChatInput({
   }, [setUploadedFiles]);
   
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    
+    console.log("handleKeyDown")
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       if (status !== 'streaming' && (input.trim() || files.length > 0)) {
@@ -310,8 +324,11 @@ export default function ChatInput({
   };
 
   const removeFile = useCallback(async (index: number) => {
+    console.log("removeFile")
     // Get the metadata for the file being removed
+    console.log("remove file")
     const fileMetadata = uploadedFileMetadata[index];
+    console.log("fileMetadata:",fileMetadata)
     setError('')
     
     // If we have a publicId, delete from Cloudinary
@@ -320,8 +337,10 @@ export default function ChatInput({
         setIsDeleting(true)
         const deleted = await deleteFileFromCloudinary(fileMetadata.publicId);
         if (deleted) {
+          console.log(`Successfully deleted file with publicId: ${fileMetadata.publicId}`);
           setIsDeleting(false)
         } else {
+          console.error(`Failed to delete file with publicId: ${fileMetadata.publicId}`);
           setIsDeleting(false)
         }
       } catch (error: any) {
@@ -347,7 +366,9 @@ export default function ChatInput({
     
     setPreFile([]);
     setUploadedFileMetadata(newMetadata);
+    console.log("newfiles:", newFiles);
     setUploadedFiles(newFiles);
+    console.log("newFiles:", newFiles);
     
     // Reset document mode if no files left
     if (newFiles.length === 0) {
@@ -356,16 +377,20 @@ export default function ChatInput({
   }, [files, uploadedFileMetadata, setUploadedFiles]);
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
-
+    console.log("handleSubmit")
+    console.log("handleSubmit model:", model)
     setIsSending(true);
     e.preventDefault();
     
     if ((input.trim() || files.length > 0) && !isProcessingPdf && status !== 'streaming' && status !== 'preparing') {
+      console.log("handleSubmitFiles:", files);
+      console.log("handleSubmitInput:", uploadedFileMetadata);
       
       // Check if we're in image generation mode
       if (imageGenerationMode && input.trim()) {
         try {
           setIsGeneratingImage(true);
+          console.log('Generating image with prompt:', input);
           
           
           // Create user message with the prompt and image generation flag
@@ -552,7 +577,7 @@ export default function ChatInput({
   }, [documentMode, webSearchEnabled, imageGenerationMode, weatherMode, preFile.length, toolPrompts, input, setInput, hasAdvancedToolsAccess, isLoading]);
 
   const handleModelSelect = (modelValue: string) => {
-    console.log(' Model selection:', { 
+    console.log('🔄 Model selection:', { 
       previous: model, 
       new: modelValue, 
       available: availableModels.map(m => m.key) 
@@ -622,9 +647,42 @@ export default function ChatInput({
 
 
 
+  console.log("ChatInputModel:", model, "Available models:", availableModels.map(m => ({ key: m.key, available: m.isAvailable })))
 
   return (
-    <div className={`sticky mt-3 bottom-0 z-10 pb-1 sm:pb-2 md:pb-4 lg:pb-6 px-4 sm:px-6 md:px-12 lg:px-20 xl:px-30 2xl:px-40 ${messages.length > 0 ? 'bg-[#212121]' : 'bg-transparent'}`}>
+    <div className={`sticky bottom-0 z-10 pb-1 sm:pb-2 md:pb-4 lg:pb-6 px-4 sm:px-6 md:px-12 lg:px-20 xl:px-30 2xl:px-40 ${messages.length > 0 ? 'bg-gray-700/80' : 'bg-transparent'}`}>
+      {/* Subscription Upgrade Banner */}
+      {subscription && !hasAccess('openrouter') && (
+        <div className="mx-1 sm:mx-2 md:mx-4 mb-1.5 sm:mb-2 md:mb-3 p-1.5 sm:p-2 md:p-3 rounded-lg text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2 border border-blue-400 shadow-md bg-blue-100 dark:bg-blue-950">
+          <div className="flex-1">
+            <span className="font-medium text-blue-800 dark:text-blue-200">
+              Upgrade to Pro+ or Ultra
+            </span>
+            <span className="ml-1 sm:ml-2 text-blue-700 dark:text-blue-300">
+              to access OpenRouter models and advanced tools
+            </span>
+          </div>
+          <button 
+            onClick={() => window.open('/settings', '_blank')}
+            className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded transition-colors"
+          >
+            Upgrade
+          </button>
+        </div>
+      )}
+      
+      {/* Debug Subscription Info */}
+      {/* {process.env.NODE_ENV === 'development' && (
+        <div className="mx-1 sm:mx-2 md:mx-4 mb-1.5 sm:mb-2 md:mb-3 p-1.5 sm:p-2 md:p-3 rounded-lg text-xs sm:text-sm bg-gray-800 text-gray-300">
+          <div>🔍 Debug: Subscription Status</div>
+          <div>Loading: {isLoading ? 'Yes' : 'No'}</div>
+          <div>Plan: {subscription?.plan || 'None'}</div>
+          <div>Status: {subscription?.status || 'None'}</div>
+          <div>Has Advanced Tools: {hasAccess('advanced_tools') ? 'Yes' : 'No'}</div>
+          <div>Has OpenRouter: {hasAccess('openrouter') ? 'Yes' : 'No'}</div>
+        </div>
+      )} */}
+
       {/* Context Warning */}
       {contextStatus.status !== 'ok' && (
         <div className={`mx-1 sm:mx-2 md:mx-4 mb-1.5 sm:mb-2 md:mb-3 p-1.5 sm:p-2 md:p-3 rounded-lg text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2 border border-gray-400 shadow-md ${
@@ -686,15 +744,15 @@ export default function ChatInput({
       <form ref={formRef} onSubmit={handleSubmit}>
         {/* File preview section */}
         {preFile.length > 0 && (
-          <div className="mb-1.5 sm:mb-2 p-1.5 sm:p-2 bg-[#2f2f2f] rounded-lg border border-gray-200">
+          <div className="mb-1.5 sm:mb-2 p-1.5 sm:p-2 bg-white/50 rounded-lg border border-gray-200">
             <div className="flex flex-wrap gap-1 sm:gap-2">
               {preFile.map((file, index) => (
                 <div key={index} className="relative group">
-                  <div className="flex items-center gap-1 sm:gap-2 p-1 sm:p-1.5 md:p-2  rounded border border-gray-200 hover:bg-gray-500/80">
+                  <div className="flex items-center gap-1 sm:gap-2 p-1 sm:p-1.5 md:p-2 bg-white rounded border border-gray-200">
                     {file.type === 'application/pdf' && (
                       <FileText className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 text-red-600" />
                     )}
-                    <div className="text-xs sm:text-sm text-gray-100 truncate max-w-[70px] sm:max-w-[80px] md:max-w-[100px] lg:max-w-[120px]">
+                    <div className="text-xs sm:text-sm text-gray-600 truncate max-w-[70px] sm:max-w-[80px] md:max-w-[100px] lg:max-w-[120px]">
                       {file.name}
                     </div>
                     <div className="text-xs text-gray-400 hidden sm:block">
@@ -757,89 +815,272 @@ export default function ChatInput({
         {isRecording && (
           <div className="mb-1.5 sm:mb-2 p-1.5 sm:p-2 md:p-3 bg-gray-500 border border-red-200 rounded-lg flex items-center gap-1.5 sm:gap-2">
             <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-red-500 rounded-full animate-pulse"></div>
-            <span className="text-gray-100 text-xs sm:text-sm font-medium">Recording... Speak now</span>
+            <span className="text-red-700 text-xs sm:text-sm font-medium">Recording... Speak now</span>
           </div>
         )}
 
-          {/* Main input container */}
-          <div className={containerClassName}>
-            
-            {/* Plus button - Left side */}
-            
+                <div className={containerClassName}>
+          {/* First row - Text input (mobile) / Full width (desktop) */}
+          <div className="flex-1 w-full">
+            <textarea
+              ref={textareaRef}
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              disabled={status === 'streaming' || isProcessingPdf}
+              placeholder={placeholderText}
+      
+              className={`w-full px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 md:py-3 bg-transparent overflow-y-auto border-none outline-none placeholder-white text-sm sm:text-base md:text-lg disabled:opacity-50 resize-none overflow-hidden max-h-[150px] sm:max-h-[180px] md:max-h-[200px] min-h-[36px] sm:min-h-[40px] md:min-h-[48px] ${imageGenerationMode||weatherMode||documentMode ? 'text-gray-700' : 'text-white'}`}
+              rows={1}
+            />
+          </div>
 
-            {/* Main textarea container */}
-            <div className="flex-1 relative">
-              <textarea
-                ref={textareaRef}
-                value={input}
-                onChange={e => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                disabled={status === 'streaming' || isProcessingPdf}
-                placeholder={placeholderText}
-                className="w-full bg-transparent text-white placeholder-white text-sm sm:text-base outline-none resize-none overflow-hidden max-h-[120px] sm:max-h-[150px] md:max-h-[200px] min-h-[40px] sm:min-h-[48px] px-2 py-2 sm:py-3"
-                rows={1}
-              />
-            </div>
-
-            {/* Right side buttons */}
-            <div className='flex flex-row justify-between'>
-            <div className="flex relative justify-center" ref={toolsMenuRef}>
+          {/* Second row - Action buttons (mobile) / Side by side (desktop) */}
+          <div className="flex items-center justify-between gap-1 sm:gap-2 md:gap-3">
+            {/* Model selector - Left side */}
+            <div className="flex relative justify-center" ref={modelMenuRef}>
               <button
                 type="button"
-                onClick={handleToolsToggle}
-                // className="px-1.5 sm:px-2 md:px-3 py-1 sm:py-1.5 md:py-2 text-xs sm:text-sm text-gray-700 hover:bg-[#555555] rounded-full hover:text-blue-600 hover:border-blue-400 transition-colors relative group/tooltip"
-                className="flex border border-gray-600  items-center gap-2 px-3 py-2   bg-[#2f2f2f] hover:bg-[#3f3f3f]  text-gray-400 rounded-lg transition-colors"
-                title={(() => {
-                  const activeTools = [];
-                  if (webSearchEnabled) activeTools.push('Web Search');
-                  if (documentMode) activeTools.push('Document Analysis');
-                  if (imageGenerationMode) activeTools.push('Image Generation');
-                  if (weatherMode) activeTools.push('Weather');
-                  
-                  if (activeTools.length === 0) {
-                    return "Tools & Options";
-                  } else {
-                    return `Active: ${activeTools.join(', ')}`;
-                  }
-                })()}
+                onClick={handleModelMenuToggle}
+                className="px-1.5 sm:px-2 md:px-3 py-1 sm:py-1.5 md:py-2 text-xs sm:text-sm text-gray-700 bg-gray-600/80 border-2 border-gray-200  rounded-lg hover:text-blue-600 hover:border-blue-400 transition-colors relative group/tooltip"
+                title={`Current: ${selectedModelLabel}`}
               >
-                <div className="flex items-center gap-1 sm:gap-2 justify-center text-white">
-                  {(() => {
-                    const activeTools = [];
-                    if (webSearchEnabled) activeTools.push({ icon: Globe, label: 'Web Search' });
-                    if (documentMode) activeTools.push({ icon: FileText, label: 'Document' });
-                    if (imageGenerationMode) activeTools.push({ icon: ImageIcon, label: 'Image Gen' });
-                    if (weatherMode) activeTools.push({ icon: CloudSun, label: 'Weather' });
-                    
-                    if (activeTools.length === 0) {
-                      return <PlusIcon className="w-6 h-6" />;
-                    } else if (activeTools.length === 1) {
-                      const ToolIcon = activeTools[0].icon;
-                      return <ToolIcon className="w-6 h-6" />;
-                    } else {
-                      return (
-                        <div className="flex items-center gap-1">
-                          {activeTools.slice(0, 2).map((tool, index) => {
-                            const ToolIcon = tool.icon;
-                            return <ToolIcon key={index} className="w-4 h-4" />;
-                          })}
-                          {activeTools.length > 2 && <span className="text-xs">+{activeTools.length - 2}</span>}
-                        </div>
-                      );
-                    }
-                  })()}
+                <div className="flex items-center gap-1 sm:gap-2">
+                  
+                  <span className="text-xs bg-blue-100 px-1 sm:px-2 py-0.5 sm:py-1 rounded text-blue-700 truncate max-w-[50px] sm:max-w-[60px] md:max-w-[80px] lg:max-w-none">
+                    {modelOptions.find(m => m.value === model)?.provider === 'google' ? modelOptions.find(m => m.value === model)?.label : modelOptions.find(m => m.value === model)?.label}
+                  </span>
                 </div>
               </button>
-              {showTools && (
-                <div className="absolute bottom-full left-0 mb-2 w-48 sm:w-56 md:w-64 lg:w-80 bg-[#222222] rounded-xl border border-gray-200 shadow-lg p-1.5 sm:p-2 z-20">
+              {showModelMenu && (
+                <div className="absolute  bottom-full left-0 mb-2 w-48 sm:w-56 md:w-64 lg:w-80 bg-gray-600/80 rounded-xl border border-gray-200 shadow-lg p-1.5 sm:p-2 z-20">
+                  <div className="p-2 text-xs text-gray-100">Current: {selectedModelLabel}</div>
+                  {isLoadingModels ? (
+                    <div className="flex items-center justify-center py-4">
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      <span className="text-sm text-gray-500">Loading models...</span>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col">
+                      {modelOptions.map(opt => {
+                        const isOpenRouterModel = opt.provider === 'openrouter';
+                        const isRestricted = isOpenRouterModel && !hasOpenRouterAccess;
+                        
+                        return (
+                          <button
+                            key={opt.value}
+                            onClick={() => !isLoading && opt.isAvailable && !isRestricted ? handleModelSelect(opt.value) : null}
+                            disabled={!opt.isAvailable || isLoading || isRestricted}
+                            className={`flex items-center justify-between w-full gap-2 px-3 py-2 rounded-lg transition-colors ${
+                              !opt.isAvailable || isLoading || isRestricted
+                                ? 'opacity-50 cursor-not-allowed text-blue-300 ' 
+                                : model === opt.value 
+                                ? 'bg-gray-500 text-white' 
+                                : 'hover:bg-gray-500 text-gray-100'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <LuCpu className="w-4 h-4" />
+                              <div className="text-left">
+                                <div className="text-sm font-medium flex items-center justify-between    ">
+                                  {opt.label}
+                                  
+                                </div>
+                                <div className="text-xs text-gray-100">
+                                  {opt.provider === 'google' ? 'Google AI' : 'OpenRouter'}
+                                  {opt.isDefault && ' (Default)'}
+                                  {isRestricted && ' (Pro+ or Ultra required)'}
+                                  {!opt.isAvailable && !isRestricted && ' (Unavailable)'}
+                                </div>
+                              </div>
+                            </div>
+                            {model === opt.value && opt.isAvailable && !isRestricted && (
+                              <span className="text-gray-800 text-xs bg-blue-200 px-2 py-1 rounded">Selected</span>
+                            )}
+                            {isLoading && isOpenRouterModel ? (
+                              <div className="w-3 h-3 animate-spin rounded-full border border-gray-400 border-t-transparent" title="Loading subscription..." />
+                            ) : isRestricted ? (
+                                    <FaLock className="w-3 h-3 text-yellow-400" title="Requires Pro+ or Ultra subscription" />
+                                  ) : isOpenRouterModel ? (
+                                    <FaLockOpen className="w-3 h-3 text-green-400" title="Available with your subscription" />
+                                  ) : null}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
 
-                  <div className="flex flex-col">
-                    {/* File input at the top */}
-                    <button
+                          {/* Right side buttons */}
+              <div className="flex items-center gap-1 sm:gap-2 md:gap-3">
+                {/* Tools button */}
+                <div className="flex items-center justify-center hover:bg-gray-600/80 rounded-lg" ref={toolsMenuRef}>
+                  <button
+                    type="button"
+                    onClick={handleToolsToggle}
+                    className="p-1 sm:p-1.5 md:p-2 text-white hover:text-blue-300 
+                    transition-colors relative group/tooltip"
+                    title="Tools"
+                  >
+                    {documentMode ? (
+                      <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 text-blue-600" />
+                    ) : webSearchEnabled ? (
+                      <Globe className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5" />
+                    ) : imageGenerationMode ? (
+                      <Palette className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 text-purple-600" />
+                    ) : weatherMode ? (
+                      <CloudSun className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 text-cyan-600" />
+                    ) : (
+                      <SlidersHorizontal className="w-5 h-5 sm:w-4 sm:h-4 md:w-5 md:h-5" />
+                    )}
+                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover/tooltip:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
+                      {documentMode ? 'Document Mode' : imageGenerationMode ? 'Image Generation Mode' : weatherMode ? 'Weather Mode' : 'Tools'}
+                    </div>
+                  </button>
+                  
+                  {showTools && (
+                    <div className="absolute bottom-full right-0 mb-2 w-36 sm:w-40 md:w-48 lg:w-64 bg-gray-600/80 rounded-xl border border-gray-200 shadow-lg p-1.5 sm:p-2 z-20">
+                      <div className="flex flex-col">
+                        {/* Define isRestricted for each tool */}
+                        {(() => {
+                          const isDocRestricted = !hasAdvancedToolsAccess;
+                          const isImageRestricted = !hasAdvancedToolsAccess;
+                          const isResearchRestricted = !hasAdvancedToolsAccess;
+                          
+                          return (
+                            <>
+                              <button 
+                                onClick={() => handleToolSelect('web')} 
+                                disabled={documentMode || weatherMode}
+                                className={`flex text-gray-100 items-center justify-between w-full gap-2 px-3 py-2 rounded-lg transition-colors  ${
+                                  documentMode || weatherMode
+                                    ? 'opacity-50 cursor-not-allowed text-gray-400'
+                                    : webSearchEnabled 
+                                    ? 'bg-cyan-200 text-cyan-700 hover:bg-cyan-200'
+                                      : 'hover:bg-cyan-100 hover:text-gray-900'
+                                }`}
+                              >
+                                <span className="flex items-center gap-2">
+                                  <Globe className="w-4 h-4" />
+                                  Web Search
+                                  {webSearchEnabled && !documentMode && !weatherMode && <span className="text-xs font-medium">(ON)</span>}
+                                </span>
+                              </button>
+                             
+                              <button 
+                                  onClick={() => handleToolSelect('weather')} 
+                                  disabled={documentMode || imageGenerationMode || webSearchEnabled}
+                                  className={`flex text-gray-100 items-center justify-between w-full gap-2 px-3 py-2 rounded-lg transition-colors ${
+                                    documentMode || imageGenerationMode || webSearchEnabled
+                                      ? 'opacity-50 cursor-not-allowed text-gray-400' 
+                                      : weatherMode
+                                      ? 'bg-cyan-200 text-cyan-700 hover:bg-cyan-200'
+                                      : 'hover:bg-cyan-100 hover:text-gray-900'
+                                  }`}
+                                >
+                                  <span className="flex items-center gap-2">
+                                    <CloudSun className="w-4 h-4" />
+                                    Weather
+                                    {weatherMode && <span className="text-xs font-medium">(ON)</span>}
+                                  </span>
+                                </button>
+                                
+                                                              <button 
+                                onClick={() => !isLoading ? handleToolSelect('doc') : null} 
+                                disabled={imageGenerationMode || webSearchEnabled || weatherMode || isLoading || isDocRestricted}
+                                  className={`flex text-gray-100 items-center justify-between w-full gap-2 px-3 py-2 rounded-lg transition-colors ${
+                                    imageGenerationMode || webSearchEnabled || weatherMode || isLoading || isDocRestricted
+                                      ? 'opacity-50 cursor-not-allowed text-gray-400 ' 
+                                      : documentMode
+                                      ? 'bg-gray-400/80 text-gray-100 hover:bg-gray-500/80'
+                                      : 'hover:bg-blue-100 hover:text-gray-900'
+                                  }`}
+                                >
+                                  <span className="flex items-center gap-2">
+                                    <FileText className="w-4 h-4" />
+                                    Document
+                                    {documentMode && <span className="text-xs font-medium">(ON)</span>}
+                                  </span>
+                                  {isLoading ? (
+                                    <div className="w-3 h-3 animate-spin rounded-full border border-gray-400 border-t-transparent" title="Loading subscription..." />
+                                  ) : isDocRestricted ? (
+                                    <FaLock className="w-3 h-3 text-yellow-400" title="Requires Pro+ or Ultra subscription" />
+                                  ) : (
+                                    <FaLockOpen className="w-3 h-3 text-green-400" title="Available with your subscription" />
+                                  )}
+                                </button>
+                                
+                                <button 
+                                  onClick={() => !isLoading ? handleToolSelect('generate-image') : null} 
+                                  disabled={documentMode || webSearchEnabled || weatherMode || isLoading || isImageRestricted}
+                                  className={`flex text-gray-100 items-center justify-between w-full gap-2 px-3 py-2 rounded-lg transition-colors ${
+                                    documentMode || webSearchEnabled || weatherMode || isLoading || isImageRestricted
+                                      ? 'opacity-50 cursor-not-allowed text-gray-400'
+                                      : imageGenerationMode 
+                                      ? 'bg-purple-200 text-gray-400 text-purple-700 hover:bg-purple-200' 
+                                      : ' hover:bg-purple-100 hover:text-gray-900'
+                                  }`}
+                                >
+                                  <span className="flex items-center gap-2">
+                                    <Palette className="w-4 h-4" />
+                                    Generate Image
+                                    {imageGenerationMode && <span className="text-xs font-medium">(ON)</span>}
+                                  </span>
+                                  {isLoading ? (
+                                    <div className="w-3 h-3 animate-spin rounded-full border border-gray-400 border-t-transparent" title="Loading subscription..." />
+                                  ) : isImageRestricted ? (
+                                    <FaLock className="w-3 h-3 text-yellow-400" title="Requires Pro+ or Ultra subscription" />
+                                  ) : (
+                                    <FaLockOpen className="w-3 h-3 text-green-400" title="Available with your subscription" />
+                                  )}
+                                </button>
+                                
+                                <button 
+                                  onClick={() => !isLoading ? handleToolSelect('research') : null} 
+                                  disabled={documentMode || imageGenerationMode || weatherMode || isLoading || isResearchRestricted}
+                                  className={`flex items-center justify-between w-full gap-2 px-3 py-2 rounded-lg transition-colors ${
+                                    documentMode || imageGenerationMode || weatherMode || isLoading || isResearchRestricted
+                                      ? 'opacity-50 cursor-not-allowed text-gray-400' 
+                                      : 'hover:bg-blue-100 hover:text-gray-900'
+                                  }`}
+                                >
+                                  <span className="flex items-center gap-2">
+                                    <FlaskConical className="w-4 h-4" />
+                                    Deep Research
+                                  </span>
+                                  {isLoading ? (
+                                    <div className="w-3 h-3 animate-spin rounded-full border border-gray-400 border-t-transparent" title="Loading subscription..." />
+                                  ) : isResearchRestricted ? (
+                                      <FaLock className="w-3 h-3 text-yellow-400" title="Requires Pro+ or Ultra subscription" />
+                                    ) : (
+                                      <FaLockOpen className="w-3 h-3 text-green-400" title="Available with your subscription" />
+                                    )}
+                                </button>
+                            </>
+                          );
+                        })()}
+                      
+
+                      
+
+
+                     
+                  
+
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* File input button */}
+                <div className="flex items-center justify-center">
+                  <button
                     type="button"
                     onClick={handleFileInputClick}
                     disabled={isFileUploadDisabled}
-                    className={`p-1 text-gray-100 sm:p-1.5 md:p-2 transition-colors relative group/tooltip hover:bg-gray-600/80  rounded-lg ${
+                    className={`p-1 sm:p-1.5 md:p-2 transition-colors relative group/tooltip hover:bg-gray-600/80 rounded-lg ${
                       isFileUploadDisabled
                         ? 'text-gray-300 cursor-not-allowed' 
                         : 'text-gray-100 hover:text-blue-300'
@@ -854,13 +1095,7 @@ export default function ChatInput({
                         : "Attach files"
                     }
                   >
-                    
-                   
-                    <span className="flex items-center gap-2">
                     <Paperclip className="w-5 h-5 sm:w-4 sm:h-4 md:w-5 md:h-5" />
-                        Upload image
-                       
-                      </span>
                                 <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover/tooltip:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
                       {documentMode 
                         ? "Image upload disabled in document mode"
@@ -880,231 +1115,68 @@ export default function ChatInput({
                       accept="image/*"
                     />
                   </button>
-                    
-                    {/* Document Analysis */}
-                    <button
-                      onClick={() => !isLoading ? handleToolSelect('doc') : null}
-                      disabled={imageGenerationMode || webSearchEnabled || weatherMode || isLoading || !hasAdvancedToolsAccess}
-                      className={`flex text-gray-100 items-center justify-between w-full gap-2 px-3 py-2 rounded-lg transition-colors ${
-                        imageGenerationMode || webSearchEnabled || weatherMode || isLoading || !hasAdvancedToolsAccess
-                          ? 'opacity-50 cursor-not-allowed text-gray-400'
-                          : documentMode
-                          ? 'bg-gray-400/80 text-gray-100 hover:bg-gray-500/80'
-                          : 'hover:bg-blue-100 hover:text-gray-900'
-                      }`}
-                    >
-                      <span className="flex items-center gap-2">
-                        <FileText className="w-4 h-4" />
-                        Document Analysis
-                        {documentMode && <span className="text-xs font-medium">(ON)</span>}
-                      </span>
-                      {isLoading ? (
-                        <div className="w-3 h-3 animate-spin rounded-full border border-gray-400 border-t-transparent" title="Loading subscription..." />
-                      ) : !hasAdvancedToolsAccess ? (
-                        <FaLock className="w-3 h-3 text-yellow-400" title="Requires Pro+ or Ultra subscription" />
-                      ) : (
-                        <FaLockOpen className="w-3 h-3 text-green-400" title="Available with your subscription" />
-                      )}
-                    </button>
-                    
-                    {/* Web Search */}
-                    <button
-                      onClick={() => handleToolSelect('web')}
-                      disabled={documentMode || weatherMode}
-                      className={`flex text-gray-100 items-center justify-between w-full gap-2 px-3 py-2 rounded-lg transition-colors ${
-                        documentMode || weatherMode
-                          ? 'opacity-50 cursor-not-allowed text-gray-400'
-                          : webSearchEnabled
-                          ? 'bg-cyan-200 text-cyan-700 hover:bg-cyan-200'
-                          : 'hover:bg-cyan-100 hover:text-gray-900'
-                      }`}
-                    >
-                      <span className="flex items-center gap-2">
-                        <Globe className="w-4 h-4" />
-                        Web Search
-                        {webSearchEnabled && !documentMode && !weatherMode && <span className="text-xs font-medium">(ON)</span>}
-                      </span>
-                    </button>
-                    
-                    {/* Weather */}
-                    
-                    
-                    {/* Image Generation */}
-                   
-                    {/* Deep Research */}
-                    <button
-                      onClick={() => !isLoading ? handleToolSelect('research') : null}
-                      disabled={documentMode || imageGenerationMode || weatherMode || isLoading || !hasAdvancedToolsAccess}
-                      className={`flex items-center justify-between w-full gap-2 px-3 py-2 rounded-lg transition-colors ${
-                        documentMode || imageGenerationMode || weatherMode || isLoading || !hasAdvancedToolsAccess
-                          ? 'opacity-50 cursor-not-allowed text-gray-400'
-                          : 'hover:bg-blue-100 hover:text-gray-900'
-                      }`}
-                    >
-                      <span className="flex items-center gap-2">
-                        <FlaskConical className="w-4 h-4" />
-                        Deep Research
-                      </span>
-                      {isLoading ? (
-                        <div className="w-3 h-3 animate-spin rounded-full border border-gray-400 border-t-transparent" title="Loading subscription..." />
-                      ) : !hasAdvancedToolsAccess ? (
-                        <FaLock className="w-3 h-3 text-yellow-400" title="Requires Pro+ or Ultra subscription" />
-                      ) : (
-                        <FaLockOpen className="w-3 h-3 text-green-400" title="Available with your subscription" />
-                      )}
-                    </button>
-                    
-                  </div>
                 </div>
-              )}
-            </div>
-            <div className="flex items-center gap-1 sm:gap-2 md:gap-3">
 
-            {/* Hidden document input */}
-            <input
-              type="file"
-              ref={documentInputRef}
-              onChange={handleDocumentChange}
-              className="hidden"
-              accept="application/pdf,.pdf,.doc,.docx,.txt"
-            />
-            <div className='flex flex-row justify-start ml-2'>
-              {messages.length > 0 && (
-              <div className="flex items-center mr-2">
-                {(() => {
-                  const contextStatus = getContextStatus(messages, model);
-                  const percentage = contextStatus.percentage;
-                  
-                  // Determine color based on usage
-                  let colorClass = 'text-gray-200';
-                  let bgColorClass = 'bg-green-400';
-                  if (percentage >= 90) {
-                    colorClass = 'text-red-400';
-                    bgColorClass = 'bg-red-400';
-                  } else if (percentage >= 70) {
-                    colorClass = 'text-yellow-400';
-                    bgColorClass = 'bg-yellow-400';
-                  }
-                  
-                  return (
-                    <div className="relative group/tooltip">
-                      <div className="flex items-center gap-1.5 bg-[#2f2f2f] 600">
-                        {/* Circular progress indicator */}
-                        <div className="relative w-8 h-8">
-                          <svg className="w-8 h-8 transform -rotate-90" viewBox="0 0 16 16">
-                            {/* Background circle */}
-                            <circle
-                              cx="8"
-                              cy="8"
-                              r="6"
-                              stroke="currentColor"
-                              strokeWidth="1.5"
-                              fill="none"
-                              className="text-gray-600"
-                            />
-                            {/* Progress circle */}
-                            <circle
-                              cx="8"
-                              cy="8"
-                              r="6"
-                              stroke="currentColor"
-                              strokeWidth="1.5"
-                              fill="none"
-                              strokeDasharray={`${2 * Math.PI * 6}`}
-                              strokeDashoffset={`${2 * Math.PI * 6 * (1 - percentage / 100)}`}
-                              className={colorClass}
-                              strokeLinecap="round"
-                            />
-                          </svg>
-                        </div>
-                        {/* Percentage text */}
-                        
-                      </div>
-                      
-                      {/* Tooltip */}
-                      <div className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 group-hover/tooltip:opacity-100 transition-opacity duration-200 whitespace-nowrap z-20 border border-gray-600">
-                        <div className="space-y-1">
-                          <div>
-                          <span className={`text-xs font-medium ${colorClass}`}>
-                           {percentage}%-
-                        </span>
-                        Context: {contextStatus.currentTokens.toLocaleString()} / {contextStatus.limit.toLocaleString()} tokens 
-                          </div>
-                          <div className="text-gray-300">{contextStatus.message}</div>
-                          {percentage >= 70 && (
-                            <div className="text-yellow-300 text-xs mt-1">
-                              Context management may be applied
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })()}
-              </div>
-            )}
-            </div>
-            
-            {/* Dictation button */}
-            <DictationButton
-              onTranscript={handleTranscript}
-              onRecordingChange={setIsRecording}
-              disabled={status === 'streaming' || isProcessingPdf}
-              size="md"
-              showTooltip={true}
-            />
-
-            {/* Context Usage Indicator */}
-            
-
-            {/* Submit or stop button */}
-            {status === 'streaming' ? (
+              {/* Hidden document input */}
+              <input
+                type="file"
+                ref={documentInputRef}
+                onChange={handleDocumentChange}
+                className="hidden"
+                accept="application/pdf,.pdf,.doc,.docx,.txt"
+              />
               
-              <button
-                type="button"
-                onClick={onStop}
-                className="px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 md:py-3 bg-gradient-to-r from-gray-500 to-gray-500 text-white rounded-lg hover:from-gray-600 hover:to-gray-700 transition-colors flex items-center justify-center relative group/tooltip"
-                title="Stop Generation"
-              >
-                <div>
-           
-                <Square className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 text-red-400 bg-red-400 rounded-sm " >
-                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover/tooltip:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
-                  Stop Generation
-                </div>
-                </Square>
+              {/* Dictation button */}
+              <DictationButton
+                onTranscript={handleTranscript}
+                onRecordingChange={setIsRecording}
+                disabled={status === 'streaming' || isProcessingPdf}
+                size="md"
+                showTooltip={true}
+              />
+
+              {/* Submit or stop button */}
+              {status === 'streaming' ? (
                 
-                </div>
-              </button>
-            ) : (!isRecording && (
-              <button
-                type="submit"
-                disabled={isSubmitDisabled}
-                className="px-2 sm:px-3 sm:py-2 md:py-3 bg-white text-black rounded-full hover:from-blue-700 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed transition-colors flex items-center justify-center relative group/tooltip"
-                title="Send Message"
-              >
-                {(isSending || status === 'preparing') ? (
-                  <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 animate-spin" />
-                ) : (
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg> 
-                  // <ArrowUp01 className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 text-red-400 bg-red-400 rounded-sm " ></ArrowUp01>
-                )}
-                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover/tooltip:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
-                  {(isSending || status === 'preparing') ? 'Sending...' : 'Send Message'}
-                </div>
-              </button>
-            ))}
-            </div>
-            
+                <button
+                  type="button"
+                  onClick={onStop}
+                  className="px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 md:py-3 bg-gradient-to-r from-gray-500 to-gray-500 text-white rounded-lg hover:from-gray-600 hover:to-gray-700 transition-colors flex items-center justify-center relative group/tooltip"
+                  title="Stop Generation"
+                >
+                  <div>
+             
+                  <Square className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 text-red-400 bg-red-400 rounded-sm " >
+                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover/tooltip:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
+                    Stop Generation
+                  </div>
+                  </Square>
+                  
+                  </div>
+                </button>
+              ) : (!isRecording && (
+                <button 
+                  type="submit" 
+                  disabled={isSubmitDisabled}
+                  className="px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 md:py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed transition-colors flex items-center justify-center relative group/tooltip"
+                  title="Send Message"
+                >
+                  {(isSending || status === 'preparing') ? (
+                    <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 animate-spin" />
+                  ) : (
+                    <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                    </svg>
+                  )}
+                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover/tooltip:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
+                    {(isSending || status === 'preparing') ? 'Sending...' : 'Send Message'}
+                  </div>
+                </button>
+              ))}
             </div>
           </div>
+        </div>
       </form>
-      <div className="flex justify-center">
-        <span className="text-xs text-gray-100 ">
-          ChatGPT can make mistakes. Check important info. See Cookie Preferences.
-        </span>
-      </div>
-      
     </div>
   );
 }

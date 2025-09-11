@@ -38,19 +38,16 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
   const [isLoading, setIsLoading] = useState(true);
 
   const refreshSubscription = async () => {
-    // Don't make API call if userId is empty
-    if (!userId || userId.trim() === '') {
-      setIsLoading(false);
-      return;
-    }
-    
     try {
+      console.log('🔄 Refreshing subscription for userId:', userId);
       const profileResponse = await UserApiService.getUserProfile(userId);
+      console.log('🔄 Profile response:', profileResponse);
       
       if (profileResponse.success && profileResponse.data?.user?.subscription) {
+        console.log('🔄 Setting subscription:', profileResponse.data.user.subscription);
         setSubscription(profileResponse.data.user.subscription);
       } else {
-        console.log(' No subscription data found in response');
+        console.log('🔄 No subscription data found in response');
       }
     } catch (error) {
       console.error('Failed to refresh subscription:', error);
@@ -58,20 +55,39 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
   };
 
   const hasAccess = (feature: 'openrouter' | 'advanced_tools'): boolean => {
+    console.log('🔒 hasAccess called for:', feature);
+    console.log('🔒 Current subscription object:', subscription);
+    console.log('🔒 Is loading:', isLoading);
+    
     // If still loading, return false to prevent access until data is loaded
     if (isLoading) {
+      console.log('🔒 hasAccess: Still loading subscription data');
       return false;
     }
     
     if (!subscription) {
+      console.log('🔒 hasAccess: No subscription data');
       return false;
     }
     
     // Normalize plan names to handle different formats
     const plan = subscription.plan?.toLowerCase() || '';
+    console.log(`🔒 hasAccess for ${feature}:`, { 
+      originalPlan: subscription.plan, 
+      normalizedPlan: plan,
+      subscriptionStatus: subscription.status,
+      fullSubscriptionObject: subscription
+    });
     
     // Check for both plan names and keys
     const hasProAccess = plan.includes('pro+') || plan.includes('ultra') || plan.includes('pro-plus') || plan.includes('pro_plus');
+    console.log('🔒 hasProAccess result:', hasProAccess);
+    console.log('🔒 Plan checks:', {
+      includesProPlus: plan.includes('pro+'),
+      includesUltra: plan.includes('ultra'),
+      includesProDash: plan.includes('pro-plus'),
+      includesProUnderscore: plan.includes('pro_plus')
+    });
     
     switch (feature) {
       case 'openrouter':

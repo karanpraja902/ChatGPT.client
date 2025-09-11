@@ -136,12 +136,12 @@ PORT=5000
 ## Example: What Real Price IDs Look Like
 
 ```
- Correct Format:
+✅ Correct Format:
 - price_1NXWPnLkdIwHu7ixaFttYNFw
 - price_1NXWQgLkdIwHu7ixKYNH8CgG
 - price_1NXWRHLkdIwHu7ixBVZ8ePQz
 
- Wrong Format:
+❌ Wrong Format:
 - sub_1PJZ9mF5dcn2Hjb0aVJqR7T9  (this is subscription ID)
 - prod_ABC123                    (this is product ID)
 - cus_DEF456                     (this is customer ID)

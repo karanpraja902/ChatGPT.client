@@ -163,22 +163,20 @@ export default function DictationButton({
       type="button"
       onClick={toggleRecording}
       disabled={disabled}
-      // className={`${sizeClasses[size]} transition-colors relative group/tooltip ${
-      //   isRecording 
-      //     ? 'text-red-500 hover:text-red-600' 
-      //     : 'text-gray-200 hover:text-red-300'
-      // } ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${className}`}
-      className="flex border border-gray-600  items-center gap-2 px-4 py-2 bg-[#2f2f2f] hover:bg-[#3f3f3f] text-gray-200 rounded-lg transition-colors ml-auto"
+      className={`${sizeClasses[size]} transition-colors relative group/tooltip ${
+        isRecording 
+          ? 'text-red-500 hover:text-red-600' 
+          : 'text-gray-200 hover:text-red-300'
+      } ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${className}`}
       title={isRecording ? 'Stop Dictation' : 'Start Dictation'}
     >
       {isRecording ? <MicOff className={iconSizes[size]} /> : <Mic className={iconSizes[size]} />}
       
       {showTooltip && (
         <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover/tooltip:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
-          {isRecording ? 'Stop Dictation' : 'Start Dictation'} 
+          {isRecording ? 'Stop Dictation' : 'Start Dictation'}
         </div>
       )}
-      <span className="text-gray-200 text-md">voice</span>
     </button>
   );
 }

@@ -9,7 +9,7 @@ import Weather from '@/components/weather/Weather';
 import type { UploadedClientFile } from '@/services/api/cloudinary';
 import { uploadFilesClient } from '@/services/api/cloudinary';
 import { toast } from 'react-hot-toast';
-import { Loader2, RefreshCw, Copy, Check, Edit, X, FileText, Download, Eye, StopCircle, Menu, Settings } from 'lucide-react';
+import { Loader2, RefreshCw, Copy, Check, Edit, X, FileText, Download, Eye, StopCircle, Menu } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import Sidebar from '@/components/ui/sidebar';
@@ -71,7 +71,9 @@ useEffect(() => {
 
   // Optimized status management for all operations
    // Monitor status changes for debugging
- 
+  useEffect(() => {
+    console.log("Status changed to:", status, "Sub:", statusSub);
+  }, [status, statusSub]);
 
   // Load messages from database when component mounts
   useEffect(() => {
@@ -94,6 +96,7 @@ useEffect(() => {
             metadata: msg.metadata || {},
             createdAt: new Date(msg.timestamp || Date.now())
           }));
+          console.log("transformedMessages:", transformedMessages);
           setMessages(transformedMessages);
         }
       } catch (error) {
@@ -106,11 +109,9 @@ useEffect(() => {
       loadMessages();
     }
   }, [chatId]);
-  // Status message sequence effect - only for specific operations
-  useEffect(() => {
+ useEffect(() => {
     let statusMessages: Array<{ main: string; sub: string }> = [];
     let operationType = '';
-    let intervalId: NodeJS.Timeout | null = null;
 
     if (isImageGenerating) {
       operationType = 'Image Generation';
@@ -136,6 +137,11 @@ useEffect(() => {
         { main: 'generating', sub: 'Extracting key information' },
         { main: 'converting', sub: 'Formatting analysis results' }
       ];
+    } else if (status === 'preparing') {
+      statusMessages = [
+        { main: 'preparing', sub: 'connecting to AI model...' },
+        { main: 'thinking', sub: 'Finalizing output format..' },
+      ];
     }
 
     if (statusMessages.length > 0) {
@@ -146,61 +152,27 @@ useEffect(() => {
       setStatus(initialStatus);
       setStatusSub(statusMessages[currentIndex].sub);
 
-      intervalId = setInterval(() => {
+      console.log(`${operationType} started:`, initialStatus);
+
+      const interval = setInterval(() => {
         currentIndex++;
  
         if (currentIndex < statusMessages.length) {
           const newStatus = statusMessages[currentIndex].main as 'idle' | 'streaming' | 'ready' | 'preparing' | 'generating' | 'connecting' | 'converting' | 'analyzing' | 'searching';
           const newStatusSub = statusMessages[currentIndex].sub;
 
+          console.log(`${operationType} - Updating status to:`, newStatus, "with sub:", newStatusSub);
           setStatus(newStatus);
           setStatusSub(newStatusSub);
         } else {
           console.log(`${operationType} - Status sequence complete, clearing interval`);
-          if (intervalId) {
-            clearInterval(intervalId);
-            intervalId = null;
-          }
+          clearInterval(interval);
         }
-      }, 3000); // Reduced timing for better UX
-
-      return () => {
-        if (intervalId) {
-          clearInterval(intervalId);
-        }
-      };
+      }, 5000); // Optimized timing for better UX
+      return () => clearInterval(interval);
     }
-  }, [isImageGenerating, isWebSearching, isDocumentAnalyzing]); // Removed 'status' from dependencies
+  }, [isImageGenerating, isWebSearching, isDocumentAnalyzing, status]);
 
-  // Handle general preparing status for regular chat
-  useEffect(() => {
-    if (status === 'preparing' && !isImageGenerating && !isWebSearching && !isDocumentAnalyzing) {
-      const timeoutId = setTimeout(() => {
-        setStatus('thinking');
-        setStatusSub('Processing your request...');
-      }, 2000);
-
-      return () => clearTimeout(timeoutId);
-    }
-  }, [status, isImageGenerating, isWebSearching, isDocumentAnalyzing]);
-
-  // Reset status when operations complete
-  useEffect(() => {
-    if (status === 'ready' && (isImageGenerating || isWebSearching || isDocumentAnalyzing)) {
-      // Reset operation flags when ready
-      if (isImageGenerating) setIsImageGenerating(false);
-      if (isWebSearching) setIsWebSearching(false);
-      if (isDocumentAnalyzing) setIsDocumentAnalyzing(false);
-      
-      // Clear status after a short delay
-      const timeoutId = setTimeout(() => {
-        setStatus('idle');
-        setStatusSub('');
-      }, 1000);
-
-      return () => clearTimeout(timeoutId);
-    }
-  }, [status, isImageGenerating, isWebSearching, isDocumentAnalyzing]);
 
   // Custom sendMessage function that works with your backend (memoized for performance)
   const sendMessage = useCallback(async (message: any) => {
@@ -226,6 +198,7 @@ useEffect(() => {
         parts: message.parts || [{ type: 'text', text: message.content || message }],
         createdAt: new Date()
       };
+      console.log("Original message parts:", message.parts)
 
       setMessages(prev => [...prev, userMessage]);
 
@@ -278,9 +251,11 @@ useEffect(() => {
             };
             setStatus('streaming');
 
+            console.log("assistantMessage:", assistantMessage);
             setMessages(prev => [...prev, assistantMessage]);
             setStatus('ready');
             setIsImageGenerating(false);
+            console.log("ImageGenMessages:", messages);
             // Save both messages to database
             try {
               await saveMessage(chatId as string, userMessage);
@@ -377,6 +352,7 @@ useEffect(() => {
         // Check if web search is enabled
         console.log("Web Search message:", message);
         const isWebSearchEnabled = message.metadata?.enableWebSearch || false;
+        console.log("isWebSearchEnabled:", isWebSearchEnabled);
         if (isWebSearchEnabled) {
           // Handle web search separately
           try {
@@ -392,6 +368,7 @@ useEffect(() => {
               query: message.content,
               userQuestion: message.content
             });
+            console.log("webSearchResult:", webSearchResult);
             if (webSearchResult.success) {
               // Create assistant message with web search results
               const assistantMessageId = (Date.now() + 1).toString();
@@ -487,12 +464,14 @@ useEffect(() => {
                   analysisType = 'qa';
                 }
               }
+              console.log("analysisType:", analysisType);
               // Call document analysis API
               const analysisResult = await AiApiService.analyzeDocument({
                 pdfUrl: pdfFile.url,
                 question: userQuestion || 'Provide a comprehensive analysis of this document',
                 analysisType: analysisType as 'summary' | 'qa' | 'extract' | 'general'
               });
+              console.log("analysisResult:", analysisResult);
               if (analysisResult.success) {
                 analysisResults.push({
                   filename: pdfFile.filename,
@@ -566,6 +545,7 @@ useEffect(() => {
         }
         // setMessages(prev => [...prev, userMessage]);
 
+        console.log("normal message handling:", messages)
         console.log("normaluserMessage:", userMessage)
         // Normal message handling (non-image generation, non-web search, non-document analysis)
         // Prepare assistant message ID (but don't add to messages yet)
@@ -639,7 +619,7 @@ useEffect(() => {
 
         // Check for empty assistant response after streaming completes
         if (!accumulatedText || accumulatedText.trim().length === 0) {
-          console.error(' Empty assistant response received');
+          console.error('❌ Empty assistant response received');
           
           // Remove the empty assistant message from UI
           setMessages(prev => prev.filter(msg => msg.id !== assistantMessageId));
@@ -662,7 +642,7 @@ useEffect(() => {
           setStatus('idle');
           
           // Show specific toast for empty response
-          toast.error(' No response received from AI model', {
+          toast.error('🤖 No response received from AI model', {
             duration: 6000,
             position: 'top-center',
           });
@@ -681,6 +661,7 @@ useEffect(() => {
             parts: [{ type: 'text', text: accumulatedText }],
             createdAt: new Date()
           };
+          console.log("messages just before saving:", messages)
           await saveMessage(chatId as string, userMessage);
           await saveMessage(chatId as string, finalAssistantMessage);
         } catch (error) {
@@ -824,7 +805,7 @@ useEffect(() => {
           toast.error(`Model Unavailable: ${errorMessage}`, {
             duration: 6000,
             position: 'top-center',
-            icon: '',
+            icon: '🤖',
           });
         } else if (errorType === 'empty_response_error') {
           toast.error(`Empty Response: ${errorMessage}`, {
@@ -836,7 +817,7 @@ useEffect(() => {
           toast.error(`Model Error: ${errorMessage}`, {
             duration: 5000,
             position: 'top-center',
-            icon: '',
+            icon: '❌',
           });
         }
       }
@@ -867,117 +848,8 @@ useEffect(() => {
     }
   }, [messages, sendMessage]);
 
-  // Function to regenerate only the assistant's response without creating a new user message
-  const regenerateResponse = useCallback(async (messagesToSend: any[]) => {
-    try {
-      setStatus('preparing');
-      setError(null);
-
-      // Prepare messages for API using the provided messages array
-      const apiMessages = messagesToSend.map(msg => ({
-        role: msg.role,
-        content: msg.parts?.find((part: any) => part.type === 'text')?.text || msg.content || '',
-        parts: msg.parts || []
-      }));
-
-
-      // Create abort controller
-      const controller = new AbortController();
-      streamControllerRef.current = controller;
-
-      // Use ChatApiService for streaming request
-      const response = await ChatApiService.sendMessage(apiMessages, {
-        signal: controller.signal,
-        userId: userId || '',
-        model: model
-      });
-
-      setStatus('streaming');
-
-      // Add assistant message immediately
-      const assistantMessageId = (Date.now() + 1).toString();
-      const assistantMessage = {
-        id: assistantMessageId,
-        role: 'assistant',
-        parts: [{ type: 'text', text: '' }],
-        createdAt: new Date()
-      };
-
-      setMessages(prev => [...prev, assistantMessage]);
-
-      // Use ChatApiService to parse streaming response
-      let accumulatedText = '';
-      let updateTimeout: NodeJS.Timeout | null = null;
-
-      // Optimized streaming with immediate UI updates
-      let lastUpdateTime = 0;
-      let chunkBuffer = '';
-
-      await ChatApiService.parseStreamingResponse(response, (chunk: string) => {
-        accumulatedText += chunk;
-        chunkBuffer += chunk;
-        
-        const now = Date.now();
-        
-        // Update UI immediately for first chunk, then throttle to 60fps (16ms)
-        if (now - lastUpdateTime >= 16 || lastUpdateTime === 0) {
-          setMessages(prev => prev.map(msg =>
-            msg.id === assistantMessageId
-              ? {
-                ...msg,
-                parts: [{ type: 'text', text: accumulatedText }]
-              }
-              : msg
-          ));
-          lastUpdateTime = now;
-        }
-      });
-
-      // Check for empty assistant response after streaming completes
-      if (!accumulatedText || accumulatedText.trim().length === 0) {
-        console.error(' Empty assistant response received');
-        
-        // Remove the empty assistant message from UI
-        setMessages(prev => prev.filter(msg => msg.id !== assistantMessageId));
-        
-        const emptyResponseError = new Error('No response received from the AI model.');
-        setError(emptyResponseError);
-        setStatus('idle');
-        return;
-      }
-
-      setStatus('ready');
-
-      // Save the assistant message to database
-      try {
-        const finalAssistantMessage = {
-          id: assistantMessageId,
-          role: 'assistant',
-          content: accumulatedText,
-          parts: [{ type: 'text', text: accumulatedText }],
-          createdAt: new Date()
-        };
-        await saveMessage(chatId as string, finalAssistantMessage);
-      } catch (error) {
-        console.error('Failed to save assistant message to database:', error);
-        setStatus('idle');
-      }
-
-      // Clean up any pending timeout
-      if (updateTimeout) {
-        clearTimeout(updateTimeout);
-      }
-
-    } catch (error: any) {
-      console.error('Regenerate response error:', error);
-      setError(error);
-      setStatus('idle');
-    } finally {
-      streamControllerRef.current = null;
-    }
-  }, [userId, model, chatId]);
-
   // UI state
+  console.log("messagesInitial", messages)
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState<string>('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -995,10 +867,12 @@ useEffect(() => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isLoadingChats, setIsLoadingChats] = useState(true);
 
+  console.log("setmodel:", model);
 
   // Save message function for persistence
   const saveMessage = async (chatId: string, message: any) => {
     try {
+      console.log("saveMessage:", {chatId:chatId}, {message:message});
       // Ensure we have valid content before saving
       let content = message.content || '';
       let parts = message.parts || [];
@@ -1008,6 +882,7 @@ useEffect(() => {
         const textPart = parts.find((part: any) => part.type === 'text' && part.text);
         content = textPart?.text || '';
       }
+      console.log("saveMessage content:", content)
       
       // Only save if we have valid content
       if (content.trim()) {
@@ -1030,6 +905,7 @@ useEffect(() => {
 
   // Enhanced send message with user context and response time measurement
   const sendMessageWithUser = useCallback(async (message: any) => {
+    console.log("static_user_id", userId || '');
 
     // Start response time measurement with high precision
     const startTime = performance.now();
@@ -1040,6 +916,7 @@ useEffect(() => {
     // Set a timeout to automatically stop measuring after 30 seconds
     responseTimerRef.current = setTimeout(() => {
       if (isMeasuringResponse) {
+        console.log("Response time measurement timed out after 30 seconds");
         setIsMeasuringResponse(false);
       }
     }, 30000);
@@ -1055,6 +932,8 @@ useEffect(() => {
       },
       model
     };
+    console.log("messageWithUser model:", messageWithUser.model)
+    console.log("messageWithUser:", messageWithUser);
     await sendMessage(messageWithUser);
   }, [sendMessage, chatId, model, isMeasuringResponse, responseTimerRef]);
 
@@ -1070,41 +949,21 @@ useEffect(() => {
 
   // Helper functions for chat display
   const handleEdit = (messageId: string, currentText: string) => {
+    console.log("handleEdit:", messageId, currentText)
     setEditingId(messageId);
     setEditText(currentText);
   };
 
-  const handleSaveEdit = async (messageId: string) => {
-    try {
-      // Find the message being edited
-      const messageToEdit = messages.find(msg => msg.id === messageId);
-      if (!messageToEdit) return;
-
-      // Update the message in the UI
-      const updated = messages.map(msg =>
-        msg.id === messageId
-          ? { ...msg, content: editText, parts: [{ type: 'text', text: editText }] }
-          : msg
-      );
-
-      // Find the index of the edited message
-      const editedMessageIndex = updated.findIndex(msg => msg.id === messageId);
-      
-      // Remove all messages after the edited user message (including the assistant's response)
-      const messagesUpToEdit = updated.slice(0, editedMessageIndex + 1);
-      setMessages(messagesUpToEdit);
-
-      // Regenerate only the assistant's response without creating a new user message
-      // Pass the messages array that includes the edited user message
-      await regenerateResponse(messagesUpToEdit);
-
-      setEditingId(null);
-      setEditText('');
-    } catch (error) {
-      console.error('Error saving edit:', error);
-      // Revert the UI changes if regeneration fails
-      setMessages(messages);
-    }
+  const handleSaveEdit = (messageId: string) => {
+    const updated = messages.map(msg =>
+      msg.id === messageId
+        ? { ...msg, content: editText, parts: [{ type: 'text', text: editText }] }
+        : msg
+    );
+    setMessages(updated as any);
+    regenerate();
+    setEditingId(null);
+    setEditText('');
   };
 
   const handleCancelEdit = () => {
@@ -1264,6 +1123,7 @@ useEffect(() => {
 
   // Handle status changes for response time measurement
   useEffect(() => {
+    console.log("status:", status);
 
     // If status changes to "ready" and we're measuring response time
     if (status === 'ready' && isMeasuringResponse && responseStartTime && !toastShownRef.current) {
@@ -1312,30 +1172,36 @@ useEffect(() => {
 
   // Sidebar functions
   const toggleSidebar = () => {
+    console.log("toggleSidebar");
     setSidebarOpen(!sidebarOpen);
   };
 
 
   const handleChatSelect = async (selectedChatId: string) => {
     setError(null);
+    console.log("handleChatSelect selectedChatId:", selectedChatId);
     const newUrl = `/chat/${selectedChatId}`;
+    console.log("handleChatSelect newUrl:", newUrl);
     
     if (selectedChatId !== chatId) {
-      setMessages([]);
       window.history.replaceState({ path: newUrl }, '', newUrl);
       setChatId(selectedChatId);
       
-      try {      
-     console.log("handleChatSelect try");
+      try {
+        // Clear current messages first
+        setMessages([]);
+     
         setStatus('idle');
         
         // Load the selected chat's messages
         setIsLoading(true);
         const response = await getChatAction(selectedChatId);
+        console.log("handleChatSelect response:", response);
         
         if (response.success && response.data?.chat && response.data.chat.messages && response.data.chat.messages.length > 0) {
           // Transform messages to match UI expectations
           const uiMessages = transformMessagesToUI(response.data.chat.messages);
+          console.log("Transformed uiMessages:", uiMessages);
           setMessages(uiMessages);
         } else {
           setMessages([]);
@@ -1364,7 +1230,9 @@ useEffect(() => {
         // Initialize static user
         const { AuthClient } = await import('@/lib/auth-client');
         const initResponse = await AuthClient.initializeStaticUser();
+        console.log("initResponse:", initResponse)
         if (initResponse) {
+          console.log('Static user initialized');
           setIsUserInitialized(true);
         }
       } catch (error) {
@@ -1380,7 +1248,9 @@ useEffect(() => {
   useEffect(() => {
     const loadExistingMessages = async () => {
       try {
+        console.log('chatId:', chatId);
         if (!chatId || chatId === 'undefined' || chatId === 'null') {
+          console.warn('Invalid chatId for loadExistingMessages:', chatId);
           setIsLoading(false);
           setMessages([]);
           return;
@@ -1388,8 +1258,10 @@ useEffect(() => {
         
         // Use the API service instead of direct fetch
         const response = await getChatAction(chatId);
+        console.log('Raw API response:', response);
         
         const existingChat = response?.data?.chat;
+        console.log('existingChat:', existingChat);
         
         // Additional safety check for the response structure
         if (!response || !response.success || !response.data) {
@@ -1401,12 +1273,28 @@ useEffect(() => {
 
         if (existingChat && existingChat.messages && existingChat.messages.length > 0) {
           const uiMessages = transformMessagesToUI(existingChat.messages);
+          console.log("uiMessages:", uiMessages);
           setMessages(uiMessages);
         } else {
           setMessages([]);
         }
 
         // Load user profile with memory context (non-blocking)
+        if (isUserInitialized) {
+            // Load user profile in background without blocking the chat loading
+          const { AuthClient } = await import('@/lib/auth-client');
+          AuthClient.getUserWithMemory(userId || '')
+            .then((userResponse: any) => {
+              console.log("userResponse:", userResponse);
+              if (userResponse.success) {
+                setUserProfile(userResponse.memory);
+              }
+            })
+            .catch((error: any) => {
+              console.warn('Failed to load user profile (non-critical):', error);
+              // This is non-critical, so we don't block the UI
+            });
+        }
         
       } catch (error) {
         console.error('Failed to load existing messages:', error);
@@ -1424,6 +1312,7 @@ useEffect(() => {
   }, [chatId, setMessages, isUserInitialized]);
 
 
+  console.log("Streamedmessages:", messages)
   // Helper function to safely transform messages from API to UI format
   const transformMessagesToUI = (messages: any[]): any[] => {
     if (!Array.isArray(messages)) {
@@ -1477,6 +1366,7 @@ useEffect(() => {
 
     const firstUserMessage = messages.find(msg => msg.role === 'user');
     if (!firstUserMessage) return 'AI-powered conversation';
+    console.log("firstUserMessage:", firstUserMessage);
 
     const content = firstUserMessage.content || '';
 
@@ -1504,9 +1394,10 @@ useEffect(() => {
   //     </div>
   //   );
   // }
+  console.log("messagesaaaaaaaaaaa:", messages);
 
   return (
-      <div className="flex h-screen bg-[#212121]">
+      <div className="flex h-screen bg-gray-100">
              {/* Sidebar - Always rendered, but shown differently based on screen size */}
         <SubscriptionProvider userId={userId || ''}>
           <ChatProvider>
@@ -1519,66 +1410,72 @@ useEffect(() => {
            onChatSelect={handleChatSelect}
            onModelChange={handleModelChange}
            currentModel={model}
-           setMessages={setMessages}
            
          />
          </ChatProvider>
         </SubscriptionProvider>
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col overflow-hidden bg-[#212121]">
-        {/* Header for all screens */}
-        <header className="flex items-center justify-between px-6 py-4 border-b border-gray-700">
-          <div className="flex items-center space-x-3">
+      <div className="flex-1 flex flex-col overflow-hidden dark:bg-gray-950">
+        {/* Mobile Header with Menu Button - Only for mobile screens */}
+        <div className="lg:hidden bg-gray-900/95 backdrop-blur-sm border-b border-gray-700 p-4">
+          <div className="flex items-center justify-between">
             <button
               onClick={toggleSidebar}
-              className="lg:hidden p-2 rounded-md hover:bg-gray-700 text-gray-300 transition-colors"
+              className="p-2 rounded-md hover:bg-gray-700 text-gray-300 transition-colors"
             >
               <Menu className="w-6 h-6" />
             </button>
-            
-            <h1 className="text-white text-lg font-medium">ChatGPT</h1>
+            <h1 className="text-lg font-semibold text-white">AI Chat</h1>
+            <div className="w-10" /> {/* Spacer for centering */}
           </div>
-          
-          <button className="bg-[#6366f1] hover:bg-[#5855eb] text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2">
-            <span>✨</span>
-            <span>Upgrade to pro</span>
-          </button>
-          
-          <button className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors">
-            
-            <Settings className="w-5 h-5" />
-          </button>
-        </header>
+        </div>
+
+        {/* Responsive Header - Only for tablet screens (not mobile, not laptop+) */}
+        <div className="hidden md:block lg:hidden">
+          <Header
+            title="AI Chat"
+            onMenuToggle={toggleSidebar}
+            isMenuOpen={sidebarOpen}
+            userId={userId || ''}
+          />
+        </div>
 
         {/* Chat content */}
-        <div className="flex-1 overflow-hidden flex flex-col bg-[#212121]">
+        <div className="flex-1 overflow-hidden flex flex-col bg-gray-900/90">
           <div className="flex-1 flex flex-col w-full min-h-0">
             {/* Welcome Header */}
             {!messages.length &&!isLoading && (
-              <div className="flex-1 flex flex-col items-center justify-center px-6">
-                <div className="w-full max-w-3xl">
-                  {/* Ready when you are text */}
-              
-                  <div className="text-center mb-8 flex flex-row items-center justify-center">
-                  <img 
-                src="/chatgpt.svg" 
-                alt="ChatGPT" 
-                className="w-10 h-10 mr-2 filter brightness-0 invert"
-              />
-                    <h2 className="text-white text-3xl font-normal">Ready when you are.</h2>
+              <div className={`text-center mb-8 px-4 ${!messages.length && 'mt-45'}`}>
+                <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-white to-gray-600 bg-clip-text text-transparent mb-2">
+                  AI Chat Assistant
+                </h1>
+                <p className="text-gray-200 text-base sm:text-lg">
+                  Powered by Google&apos;s Generative AI with Memory
+                </p>
+                <p className="text-xs sm:text-sm text-gray-200 mt-2">
+                  Chat ID: {chatId} | User: {userId || ''}
+                </p>
+
+                {/* User Profile Display */}
+                {userProfile && (
+                  <div className="mt-4 p-3 bg-blue-900/30 border border-blue-400/30 rounded-lg mx-4">
+                    <div className="text-sm text-blue-200">
+                      <strong>Learning Profile:</strong> {userProfile.preferences?.conversationStyle || 'casual'} style,
+                      {userProfile.preferences?.topics?.length || 0} preferred topics
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             )}
 
 
                {
                 isLoading && (
-                  <div className="min-h-screen bg-[#212121]  p-4 flex flex-col">
+                  <div className="min-h-screen bg-gray-700/80 p-4 flex flex-col">
                     <div className="max-w-5xl mx-auto flex-1 flex flex-col w-full items-center justify-center">
                       <div className="text-center">
-                        <div className="animate-spin rounded-full h-32 w-32 border-b-4 border-gray-500 mx-auto mb-4"></div>
+                        <div className="animate-spin rounded-full h-32 w-32 border-b-4 border-blue-500 mx-auto mb-4"></div>
                         <p className="text-gray-100">Loading conversation...</p>
                       </div>
                     </div>
@@ -1588,9 +1485,9 @@ useEffect(() => {
 
         {/* Dynamic Title Box - Sticky header that stays visible when scrolling */}
         {messages.length > 0 && status === 'ready' && (
-          <div className="sticky flex justify-center top-0 z-10 bg-[#212121]">
+          <div className="sticky flex justify-center top-0 z-10 bg-gray-700/80">
             <div
-              className="mx-4 p-3 sm:p-4 rounded-xl sm:rounded-2xl shadow-sm group bg-[#212121] text-gray-200 cursor-pointer hover:shadow-md transition-shadow max-w-full"
+              className="mx-4 p-3 sm:p-4 rounded-xl sm:rounded-2xl shadow-sm group bg-gray-600/80 text-gray-200 cursor-pointer hover:shadow-md transition-shadow max-w-full"
               onClick={() => {
                 if (!isEditingTitle) {
                   setIsEditingTitle(true);
@@ -1657,7 +1554,7 @@ useEffect(() => {
         {messages.length > 0 && <div className="flex-1 flex flex-col overflow-hidden bg-gray-700/80">
         {messages.length > 0 && (
           <div
-            className="bg-[#212121] px-6 px-4 sm:px-6 md:px-12 lg:px-20 xl:px-30 2xl:px-40  backdrop-blur-sm flex-1 overflow-y-auto min-h-0 overflow-x-hidden chat-scrollbar"
+            className="bg-gray-700/80 px-6 px-4 sm:px-6 md:px-12 lg:px-20 xl:px-30 2xl:px-40  backdrop-blur-sm flex-1 overflow-y-auto min-h-0 overflow-x-hidden chat-scrollbar"
             ref={chatContainerRef}
           >
 
@@ -1708,11 +1605,11 @@ useEffect(() => {
                 }`}>
                   {(error as any).errorType === 'rate_limit_error' ? '⚡ Rate Limit Exceeded' :
                    (error as any).errorType === 'api_key_error' ? '🔑 API Key Issue' :
-                   (error as any).errorType === 'model_not_found_error' ? ' Model Unavailable' :
+                   (error as any).errorType === 'model_not_found_error' ? '🤖 Model Unavailable' :
                    (error as any).errorType === 'empty_response_error' ? '💭 Empty Response' :
                    (error as any).errorType === 'request_error' ? '📝 Request Error' :
                    (error as any).errorType === 'server_error' ? '🔧 Server Error' :
-                   ' Error Occurred'}
+                   '❌ Error Occurred'}
                 </h3>
                 {(error as any).status && (
                   <span className={`px-3 py-1 text-xs font-medium rounded-full ${
@@ -1858,7 +1755,7 @@ useEffect(() => {
                     }}
                     className="px-6 py-3 bg-gray-500 text-white font-medium rounded-lg hover:bg-gray-600 transition-all duration-300 shadow-md hover:shadow-lg flex items-center gap-2"
                   >
-                     Try Google AI
+                    🤖 Try Google AI
                   </button>
                 )}
               </div>
@@ -1879,22 +1776,65 @@ useEffect(() => {
             <div className="space-y-4">
               {messages.map(message => (
                 <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'
-                  } relative group`}>
-                    <div>
-                  <div className={`flex flex-row max-w p-6 rounded-2xl ${message.role === 'user'
+                  }`}>
+                  <div className={`flex flex-row max-w p-8 rounded-2xl  relative group  ${message.role === 'user'
                       ? 'bg-gray-600/80 text-gray-100'
                       : 'bg-gray  text-gray'
                     }`}>
-                    
+                    <div className="flex items-center gap-2 absolute -bottom-2 right-2 mb-3 group-hover:opacity-100 transition-opacity duration-200">
+                      {message.role === 'assistant' && (status === "ready") && (
+                        <button
+                          onClick={() => regenerate()}
+                          className="p-1.5  hover:bg-gray-500  text-black-500 relative group/tooltip"
+                          aria-label="Regenerate response"
+                          title="Regenerate Response"
+                        >
+                          <RefreshCw className="w-4 h-4" />
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover/tooltip:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
+                            Regenerate Response
+                          </div>
+                        </button>
+                      )}
+                      {message.role === 'user' && (status === "ready") && editingId !== message.id && (
+                        <button
+                          onClick={() => handleEdit(message.id, getMessageText(message))}
+                          className="p-1.5  hover:bg-gray-500 text-gray-100 relative group/tooltip"
+                          aria-label="Edit message"
+                          title="Edit Message"
+                        >
+                          <Edit className="w-4 h-4" />
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover/tooltip:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
+                            Edit Message
+                          </div>
+                        </button>
+                      )}
+                      {(status === "ready") && (
+                        <button
+                          onClick={() => handleCopy(getMessageText(message), message.id)}
+                          className="p-1.5  hover:bg-gray-500  text-black-500 relative group/tooltip"
+                          aria-label="Copy message"
+                          title="Copy Message"
+                        >
+                          {copiedId === message.id ? (
+                            <Check className="w-4 h-4" />
+                          ) : (
+                            <Copy className="w-4 h-4" />
+                          )}
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover/tooltip:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
+                            {copiedId === message.id ? 'Copied!' : 'Copy Message'}
+                          </div>
+                        </button>
+                      )}
+                    </div>
 
-                    <div className='flex flex-row p-0'>
+                    <div className='flex flex-row gap-2'>
                       <div className="flex items-top gap-2 mt-1">
-                        {/* <div className={`w-6 h-6 rounded-full flex items-y-center text-xs font-semibold ${message.role === 'user'
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold ${message.role === 'user'
                             ? 'bg-gray-400 text-white'
                             : 'bg-gray-400 text-white'
                           }`}>
                           {message.role === 'user' ? 'U' : 'AI'}
-                        </div> */}
+                        </div>
                       </div>
 
                       <div className='flex flex-col'>
@@ -2073,63 +2013,17 @@ useEffect(() => {
                       </div>
                     </div>
                   </div>
-                  <div className={`flex items-center gap-2 absolute bottom-0 transform translate-y-full mb-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ${message.role === 'user' ? 'right-0 mr-2' : 'left-0 ml-2'}`}>
-                      {message.role === 'assistant' && (status === "ready") && (
-                        <button
-                          onClick={() => regenerate()}
-                          className="p-1.5 bg-gray-700 hover:bg-gray-600 rounded-full text-gray-100 relative group/tooltip"
-                          aria-label="Regenerate response"
-                          title="Regenerate Response"
-                        >
-                          <RefreshCw className="w-4 h-4" />
-                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover/tooltip:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
-                            Regenerate Response
-                          </div>
-                        </button>
-                      )}
-                      {message.role === 'user' && (status === "ready") && editingId !== message.id && (
-                        <button
-                          onClick={() => handleEdit(message.id, getMessageText(message))}
-                          className="p-1.5 bg-gray-700 hover:bg-gray-600 rounded-full text-gray-100 relative group/tooltip"
-                          aria-label="Edit message"
-                          title="Edit Message"
-                        >
-                          <Edit className="w-4 h-4" />
-                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover/tooltip:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
-                            Edit Message
-                          </div>
-                        </button>
-                      )}
-                      {(status === "ready") && (
-                        <button
-                          onClick={() => handleCopy(getMessageText(message), message.id)}
-                          className="p-1.5 bg-gray-700 hover:bg-gray-600 rounded-full text-gray-100 relative group/tooltip"
-                          aria-label="Copy message"
-                          title="Copy Message"
-                        >
-                          {copiedId === message.id ? (
-                            <Check className="w-4 h-4" />
-                          ) : (
-                            <Copy className="w-4 h-4" />
-                          )}
-                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover/tooltip:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
-                            {copiedId === message.id ? 'Copied!' : 'Copy Message'}
-                          </div>
-                        </button>
-                      )}
-                    </div>
-                  </div>
                 </div>
               ))}
             </div>
           )}
 <div className="ml-2 px-4">
           {status !== 'idle'  && status !== 'ready' && (
-            <div className="mt-2 p-2    rounded-xl border-2 border-gray-400 shadow-lg backdrop-blur-sm bg-opacity-80 animate-fadeIn">
+            <div className="mt-2 p-2  bg-gradient-to-r from-gray-600 to-gray-700/80  rounded-xl border-2 border-gray-400 shadow-lg backdrop-blur-sm bg-opacity-80 animate-fadeIn">
               <div className="flex items-center gap-3">
                 <div className="relative">
                   <Loader2 className="ml-2 w-5 h-5 animate-spin text-white" />
-                  <div className="absolute inset-0  rounded-full opacity-0 animate-ping"></div>
+                  <div className="absolute inset-0 bg-gray-200 rounded-full opacity-0 animate-ping"></div>
                 </div>
                 <div className="flex flex-col">
                   <span className="text-gray-200 font-medium flex items-center">

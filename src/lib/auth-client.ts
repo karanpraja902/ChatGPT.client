@@ -4,11 +4,6 @@ import { AuthResponse } from './auth-actions';
 
 // Client-side wrappers for server actions
 export class AuthClient {
-  static async checkEmail(email: string): Promise<AuthResponse & { exists?: boolean; hasPassword?: boolean }> {
-    const { checkEmailAction } = await import('./auth-actions');
-    return await checkEmailAction(email);
-  }
-
   static async login(email: string, password: string): Promise<AuthResponse> {
     const { loginAction } = await import('./auth-actions');
     return await loginAction(email, password);
@@ -34,7 +29,10 @@ export class AuthClient {
     return await updateUserMemoryAction(userId, memory);
   }
 
-  
+  static async getUserWithMemory(userId: string): Promise<AuthResponse> {
+    const { getUserWithMemoryAction } = await import('./auth-actions');
+    return await getUserWithMemoryAction(userId);
+  }
 
   static async initializeStaticUser(): Promise<AuthResponse> {
     const { initializeStaticUserAction } = await import('./auth-actions');

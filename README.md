@@ -181,9 +181,22 @@ Create a `.env.local` file in the client directory:
 
 ```env
 # API Configuration
-NEXT_PUBLIC_API_URL=http://localhost:5000
+NEXT_PUBLIC_API_URL=https://deepseek-ai-server.vercel.app/api
+NEXT_PUBLIC_CLIENT_URL=https://deepseek-ai-client.vercel.app
 
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=your_stripe_pub_key
+# Stripe Configuration
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+
+# Cloudinary Configuration (if needed)
+NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=your-cloud-name
+
+# OpenRouter Configuration (if direct access needed)
+OPENROUTER_API_KEY=sk-or-...
+
+# Google AI Configuration (if direct access needed)
+GOOGLE_AI_API_KEY=your-google-ai-key
 ```
 
 ## 📜 Available Scripts

@@ -1,11 +1,10 @@
-import { manageContextWindow, getContextStatus, ContextStrategy } from './context-manager';
-
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://deepseek-ai-server.vercel.app';
 
 
 export class ChatApiService {
 static async addMessage(chatId: string, role: string, content: string, files?: any[], parts?: any[], metadata?: any) {
     try {
+      console.log("chatapiservice addMessage:", {chatId:chatId}, {role:role}, {content:content}, {files:files}, {parts:parts}, {metadata:metadata});
       // Validate input before sending
       if (!chatId || !role || !content?.trim()) {
         throw new Error('Invalid message data: missing required fields');
@@ -41,50 +40,8 @@ static async addMessage(chatId: string, role: string, content: string, files?: a
     }
   }
  
-  static async sendMessage(
-    messages: any[], 
-    options?: { 
-      signal?: AbortSignal; 
-      enableWebSearch?: boolean; 
-      userId?: string; 
-      model?: string;
-      contextStrategy?: ContextStrategy;
-      onContextManaged?: (info: { strategy: string; tokensReduced: number; originalTokens: number }) => void;
-    }
-  ) {
+  static async sendMessage(messages: any[], options?: { signal?: AbortSignal; enableWebSearch?: boolean; userId?: string; model?: string }) {
     try {
-      // Apply client-side context management
-      const modelKey = options?.model || 'google';
-      const contextStrategy = options?.contextStrategy || 'smart_trim';
-      
-      // Get context status before management
-      const contextStatus = getContextStatus(messages, modelKey);
-      
-      let managedMessages = messages;
-      let contextInfo = null;
-      
-      // Apply context management if needed
-      if (contextStatus.percentage > 70) { // Apply management at 70% capacity
-        const contextResult = manageContextWindow(messages, modelKey, contextStrategy);
-        managedMessages = contextResult.messages;
-        contextInfo = {
-          strategy: contextResult.strategy,
-          tokensReduced: contextResult.tokensReduced,
-          originalTokens: contextResult.originalTokens
-        };
-        
-        // Notify caller about context management
-        if (options?.onContextManaged && contextResult.strategy !== 'none') {
-          options.onContextManaged(contextInfo);
-        }
-        
-        console.log(`📊 Client Context Management:
-          Strategy: ${contextResult.strategy}
-          Original tokens: ${contextResult.originalTokens}
-          Final tokens: ${contextResult.originalTokens - contextResult.tokensReduced}
-          Tokens reduced: ${contextResult.tokensReduced}`);
-      }
-
       const response = await fetch(`${API_BASE_URL}/api/ai/chat/stream`, {
         method: 'POST',
         headers: {
@@ -92,11 +49,10 @@ static async addMessage(chatId: string, role: string, content: string, files?: a
           
         },
         body: JSON.stringify({ 
-          messages: managedMessages,
+          messages,
           enableWebSearch: options?.enableWebSearch || false,
           userId: options?.userId,
-          model: options?.model,
-          contextInfo: contextInfo // Send context management info to server
+          model: options?.model
         }),
         signal: options?.signal,
         credentials: 'include',

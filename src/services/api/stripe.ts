@@ -38,15 +38,21 @@ export class StripeService {
    */
   static async redirectToCheckout(planKey: string, userId: string) {
     try {
+      console.log("stripePromise", stripePromise);
       
+        console.log('Redirecting to Stripe Checkout for plan:', planKey);
+        console.log('User ID:', userId);
       const plan = SUBSCRIPTION_PLANS[planKey];
       console.log('Plan:', plan);
       if (!plan) {
         throw new Error(`Invalid plan: ${planKey}`);
       }
+console.log('Plan2:', plan);
       // For Pro Trial, handle differently (might be free or require card setup)
     //   if (planKey === 'pro-trial') {
     //     return this.handleProTrial(userId);
+    //   }
+console.log('Plan3:', plan);
       const stripe = await stripePromise;
       if (!stripe) {
         throw new Error('Stripe failed to load');
@@ -98,6 +104,7 @@ export class StripeService {
       // For Pro Trial, you might want to:
       // 1. Just activate the trial without payment
       // 2. Or collect card info for future billing
+      console.log('Stripe Service: Activating Pro Trial for user:', userId);
       // const serverUrl = process.env.NEXT_PUBLIC_API_URL || 'https://deepseek-ai-server.vercel.app';
       const serverUrl = process.env.NEXT_PUBLIC_API_URL || 'https://deepseek-ai-server.vercel.app';
 
@@ -119,11 +126,14 @@ export class StripeService {
           userId: userId,
         }),
       });
+      console.log('Response:', response);
 
       if (!response.ok) {
         throw new Error('Failed to activate Pro Trial');
       }
+      console.log('Response2:', response);
       const result = await response.json();
+      console.log('Pro Trial activated:', result);
       return result;
     } catch (error) {
       console.error('Pro Trial activation error:', error);

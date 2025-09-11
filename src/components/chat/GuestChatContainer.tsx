@@ -25,6 +25,8 @@ const GuestChatContainer = forwardRef<ChatContainerRef, GuestChatContainerProps>
     const streamControllerRef = useRef<AbortController | null>(null);
 
     const sendMessage = useCallback(async (message: any) => {
+      console.log('GuestChatContainer sendMessage called with:', message);
+      console.log('Current messages:', messages);
       try {
         setStatus('processing');
 
@@ -37,6 +39,7 @@ const GuestChatContainer = forwardRef<ChatContainerRef, GuestChatContainerProps>
 
         // Add user message
         const updatedMessages = [...messages, newUserMessage];
+        console.log('Setting messages to:', updatedMessages);
         setMessages(updatedMessages);
 
         // Simulate processing delay
@@ -200,7 +203,7 @@ Would you like me to elaborate on any specific aspect of your question?`;
                 <div className="bg-[#2d2d2d] rounded-lg p-5 border border-gray-700 hover:border-gray-600 transition-colors">
                   <h3 className="font-semibold text-white mb-3">Examples</h3>
                   <p className="text-sm text-gray-400">
-                    &ldquo;Explain quantum computing in simple terms&rdquo;
+                    "Explain quantum computing in simple terms"
                   </p>
                 </div>
                 <div className="bg-[#2d2d2d] rounded-lg p-5 border border-gray-700 hover:border-gray-600 transition-colors">

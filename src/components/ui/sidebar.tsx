@@ -17,9 +17,7 @@ import {
   Zap,
   LogOut,
   Menu,
-  X,
-  Edit,
-  Loader2
+  X
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useResponsive } from '@/hooks/use-mobile';
@@ -27,9 +25,6 @@ import { useSubscription } from '@/contexts/SubscriptionContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { createChatAction, getUserChatsAction } from '@/lib/chat-actions';
 import { useChat } from '@/contexts/ChatContext';
-const { deleteAllChatsAction } = await import('@/lib/chat-actions');
-import { BsLayoutSidebar } from "react-icons/bs";
-import UserProfileDialog from './UserProfileDialog';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -40,7 +35,7 @@ interface SidebarProps {
   onModelChange: (model: string) => void;
   currentModel: string;
   isUserInitialized?: boolean;
-  setMessages: (messages: any[]) => void;
+  
 }
 
 export default function Sidebar({
@@ -51,7 +46,6 @@ export default function Sidebar({
   onChatSelect,
   onModelChange,
   currentModel,
-  setMessages,
   isUserInitialized,
 }: SidebarProps) {
   const router = useRouter();
@@ -72,10 +66,6 @@ export default function Sidebar({
   const [isDeletingAllChats, setIsDeletingAllChats] = useState(false);
   const [showDeleteAllConfirmation, setShowDeleteAllConfirmation] = useState(false);
   const { isMobile, isTablet, isLaptop, isWide } = useResponsive();
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [isCreatingNewChat, setIsCreatingNewChat] = useState(false);
-  const [showProfileDialog, setShowProfileDialog] = useState(false);
-
 
   const [recentChats, setRecentChats] = useState<any[]>([]);
   // Auto-close sidebar on mobile when selecting a chat
@@ -104,12 +94,12 @@ export default function Sidebar({
 
   const createNewChat = async () => {
     try {
-      setIsCreatingNewChat(true);
    
       const response = await createChatAction(); 
       if (response.success && response.data?.chat) {
         // Refresh the recent chats list
         const updatedChatsResponse = await getUserChatsAction();
+        console.log("updatedChatsResponse.data.chats:", updatedChatsResponse.data?.chats);
         setRecentChats(updatedChatsResponse.data?.chats || []);
         
         // Navigate to the new chat
@@ -117,14 +107,12 @@ export default function Sidebar({
         const newUrl = `/chat/${newChatId}`;
         window.history.replaceState({ path: newUrl }, '', newUrl);
         setChatId(newChatId);
-        setMessages([]);
+        
         toast.success('New chat created');
       }
     } catch (error) {
       console.error('Failed to create new chat:', error);
       toast.error('Failed to create new chat');
-    } finally {
-      setIsCreatingNewChat(false);
     }
   };
 
@@ -149,7 +137,7 @@ export default function Sidebar({
     try {
       setIsDeletingAllChats(true);
       // Call the delete all chats API using chat actions
-     
+      const { deleteAllChatsAction } = await import('@/lib/chat-actions');
       const response = await deleteAllChatsAction();
       
       if (response.success) {
@@ -211,19 +199,14 @@ export default function Sidebar({
 
   const handleLogout = async () => {
     try {
-      setIsLoggingOut(true);
-
       await logout();
       toast.success('Logged out successfully');
       setUserMenuOpen(false);
       // Redirect to sign-in page
       router.push('/sign-in');
     } catch (error) {
-      setIsLoggingOut(false);
       console.error('Logout failed:', error);
       toast.error('Logout failed. Please try again.');
-    } finally {
-      setIsLoggingOut(false);
     }
   };
 
@@ -239,17 +222,17 @@ export default function Sidebar({
       <>
         {/* Backdrop */}
         <div 
-          className="fixed inset-0  bg-[#222222] bg-opacity-50 z-40 sm:hidden md:hidden lg:hidden 2xl:hidden xl:hidden"
+          className="fixed inset-0  bg-gray-900 bg-opacity-50 z-40 sm:hidden md:hidden lg:hidden 2xl:hidden xl:hidden"
           onClick={onToggle}
         />
         
         {/* Sidebar overlay */}
-        <div className={`fixed top-0 left-0 h-full bg-[#222222] border border-gray-700 backdrop-blur-sm z-50 transition-transform duration-300 ease-in-out ${
+        <div className={`fixed top-0 left-0 h-full bg-gray-900/95 backdrop-blur-sm z-50 transition-transform duration-300 ease-in-out ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         } w-80 max-w-[85vw] lg:hidden`}>
           {/* Mobile header */}
           <div className="p-4 border-b border-gray-700 flex items-center justify-between">
-            <h1 className="text-xl font-bold text-gray-300">ChatGPT</h1>
+            <h1 className="text-xl font-bold text-gray-300">AI Chat</h1>
             <button 
               onClick={onToggle}
               className="p-2 rounded-md hover:bg-gray-700 text-gray-300 transition-colors"
@@ -260,31 +243,17 @@ export default function Sidebar({
 
           {/* New Chat Button */}
           <div className="p-4 border-b border-gray-700">
-          <button
-          onClick={createNewChat}
-          disabled={isCreatingNewChat}
-          className={`w-full flex items-center justify-left gap-2  text-white py-2  rounded-md hover:bg-gray-700 transition-colors ${!isOpen ? 'justify-center' : 'justify-left'}`}
-        >
-          {isOpen ? (
-            <>
-               <Edit className="w-5 h-5" />
-              <span className={isTablet ? 'text-sm' : 'text-base'}>{isCreatingNewChat ? 'Creating...' : 'New Chat'}</span>
-            </>
-          ) : (
-            <Edit className="w-5 h-5 " />
-          )}
-        </button>
-            {/* <button
+            <button
               onClick={createNewChat}
               className="w-full flex items-center justify-center gap-2 bg-gray-600 text-white py-3 px-4 rounded-md hover:bg-gray-500 transition-colors"
             >
               <Plus className="w-5 h-5" />
               <span>New Chat</span>
-            </button> */}
+            </button>
           </div>
 
           {/* Search box */}
-          <div className="p-4 border-b border-[#444444]">
+          <div className="p-4 border-b border-gray-700">
             <div className="relative text-gray-100">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <input
@@ -292,13 +261,13 @@ export default function Sidebar({
                 placeholder="Search chats..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full text-gray-100 pl-10 pr-4 py-2  border border-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-300 focus:bg-gray-700 focus:border-transparent"
+                className="w-full text-gray-100 pl-10 pr-4 py-2 bg-gray-800 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
           </div>
 
           {/* Recent Chats */}
-          <div className="flex-1 overflow-y-auto max-h-[55vh]">
+          <div className="flex-1 overflow-y-auto max-h-[60vh]">
             <div className="p-4 overflow-y-auto">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Recent Chats</h2>
@@ -337,8 +306,8 @@ export default function Sidebar({
                         onClick={() => handleChatSelect(chat.id)}
                         className={`w-full text-left p-3 rounded-md flex flex-col ${
                         currentChatId === chat.id 
-                            ? 'bg-[#444444] text-white' 
-                            : 'hover:bg-[#555555] text-gray-300'
+                            ? 'bg-blue-600 text-white' 
+                            : 'hover:bg-gray-700 text-gray-300'
                         }`}
                       >
                         <span className="truncate font-medium text-sm pr-8">
@@ -397,19 +366,13 @@ export default function Sidebar({
               </button>
 
               {userMenuOpen && (
-                <div className="absolute bottom-full left-0 mb-1 w-48 bg-[#222222] rounded-md shadow-lg border border-gray-600 py-1 z-10">
+                <div className="absolute bottom-full left-0 mb-1 w-48 bg-gray-800 rounded-md shadow-lg border border-gray-600 py-1 z-10">
                   <div className="px-4 py-2 border-b border-gray-600">
                     <p className="text-sm font-medium text-gray-300">{user?.name || user?.email || 'User'}</p>
                     <p className="text-xs text-gray-400">{getCurrentPlanName()}</p>
                   </div>
                   <div className="py-1">
-                    <button 
-                      onClick={() => {
-                        setShowProfileDialog(true);
-                        setUserMenuOpen(false);
-                      }}
-                      className="w-full text-left px-4 py-2 text-sm hover:bg-gray-700 flex items-center gap-2 text-gray-300"
-                    >
+                    <button className="w-full text-left px-4 py-2 text-sm hover:bg-gray-700 flex items-center gap-2 text-gray-300">
                       <User className="w-4 h-4" />
                       Profile
                     </button>
@@ -427,11 +390,10 @@ export default function Sidebar({
                   <div className="py-1 border-t border-gray-600">
                     <button
                       onClick={handleLogout}
-                      disabled={isLoggingOut}
                       className="w-full text-left px-4 py-2 text-sm hover:bg-gray-700 flex items-center gap-2 text-gray-300"
                     >
                       <LogOut className="w-4 h-4" />
-                      {isLoggingOut ? 'Signing out...' : 'Sign out'}
+                      Sign out
                     </button>
                   </div>
                 </div>
@@ -493,30 +455,23 @@ export default function Sidebar({
 
   // Desktop sidebar - only shown on laptop+ screens (unchanged)
   return (
-    <div className={`hidden lg:block lg:bg-[#222222] border border-gray-700 transition-all duration-300 ease-in-out ${
+    <div className={`hidden lg:block lg:bg-gray-900/95 transition-all duration-300 ease-in-out ${
       isOpen ? 'w-64' : 'w-20'
     } flex flex-col h-full`}>
       {/* Sidebar header */}
       <div className="p-4 flex flex-row items-center justify-center">
-          {isOpen && (
-            <div className="flex items-center gap-2 mb-2">
-              <img 
-                src="/chatgpt.svg" 
-                alt="ChatGPT" 
-                className={`${isTablet ? 'w-6 h-6' : 'w-8 h-8'} filter brightness-0 invert`}
-              />
-             
-            </div>
-          )}
+        {isOpen && (
+          <h1 className={`text-xl font-bold text-gray-500 bg-gradient-to-r from-white to-gray-600 bg-clip-text text-transparent mb-2 ${
+            isTablet ? 'text-lg' : 'text-4xl'
+          }`}>
+            AI Chat
+          </h1>
+        )}
         <button 
           onClick={onToggle}
-          className={`p-1 justify-center rounded-md lg:bg-[#222222] transition-all duration-300 px-2 text-gray-300 hover:bg-gray-600 ${isOpen && 'ml-auto mb-2'}`}
+          className={`p-1 justify-center rounded-md bg-gray-700 px-2 hover:bg-gray-600 ${isOpen && 'ml-auto mb-2'}`}
         >
-          {isOpen ? <BsLayoutSidebar className="w-6 h-6" /> : <img 
-                src="/chatgpt.svg" 
-                alt="ChatGPT" 
-                className={`${isTablet ? 'w-6 h-6' : 'w-8 h-8'} filter brightness-0 invert`}
-              />}
+          {isOpen ? <ChevronLeft className="w-6 h-6" /> : <ChevronRight className="w-8 h-6" />}
         </button>
       </div>
 
@@ -524,45 +479,41 @@ export default function Sidebar({
       <div className="p-4 border-gray-200">
         <button
           onClick={createNewChat}
-          className={`w-full flex items-center justify-left gap-2  text-white py-2  rounded-md hover:bg-gray-700 transition-colors ${!isOpen ? 'justify-center' : 'justify-left'}`}
+          className="w-full flex items-center justify-center gap-2 bg-gray-700 text-white py-2 px-4 rounded-md hover:bg-gray-300 hover:text-gray-900 transition-colors"
         >
           {isOpen ? (
             <>
-               <Edit className="w-5 h-5" />
-              <span className={isTablet ? 'text-sm' : 'text-base'}>{isCreatingNewChat ? 'Creating...' : 'New Chat'}</span>
-
+              <Plus className="w-5 h-5" />
+              <span className={isTablet ? 'text-sm' : 'text-base'}>New Chat</span>
             </>
           ) : (
-            <Edit className="w-5 h-5 " />
+            <Plus className="w-5 h-5" />
           )}
         </button>
       </div>
 
       {/* Search box (only when sidebar is open) */}
       {isOpen && (
-        <div >
+        <div className="p-4">
           <div className="relative text-gray-100">
-            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-100 w-5 h-5" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-100 w-4 h-4" />
             <input
               type="text"
               placeholder="Search chats..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-80% text-gray-100 pl-10 pr-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-300 focus:border-transparent"
+              className="w-full text-gray-100 pl-10 pr-4 py-2 border-4 border-white/20 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
-            
           </div>
         </div>
       )}
-      {/* "p-4 overflow-y-auto max-h-[50vh] overflow-x-hidden" */}
-      {/* relative */}
-       {/* Recent Chats */}
-       <div className='flex flex-col justify-between'>
-       <div className="flex-1 overflow-y-auto max-h-[60vh]">
-         <div className="p-4">
+
+      {/* Recent Chats */}
+      <div className="flex-1 overflow-y-auto h-full max-h-[50vh]">
+        <div className="p-4">
           {isOpen && (
             <div className="flex items-center justify-between mb-2">
-              <h1 className="text-sm font-semibold text-gray-500  tracking-wider">Chats</h1>
+              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Recent Chats</h2>
               {recentChats.length > 0 && (
                 <button
                   onClick={() => setShowDeleteAllConfirmation(true)}
@@ -599,8 +550,8 @@ export default function Sidebar({
                     onClick={() => onChatSelect(chat.id)}
                     className={`w-full text-left p-2 rounded-md flex text-gray-100 ${
                       currentChatId === chat.id 
-                        ? 'bg-[#444444] text-gray-100' 
-                        : 'hover:bg-[#555555] hover:text-white'
+                        ? 'bg-gray-500 text-gray-100' 
+                        : 'hover:bg-gray-500 hover:text-white'
                     } ${isOpen ? 'flex-col' : 'justify-center'}`}
                   >
                     {isOpen ? (
@@ -634,75 +585,71 @@ export default function Sidebar({
               ))}
             </div>
           )}
-      
-      </div>
-      </div>
-            {/* User section */}
-            <div className="mb-0 sticky z-10 bottom-0 p-4 border-t border-gray-700">
-              {isOpen && <button
-                onClick={() => setUserMenuOpen(!userMenuOpen)}
-                className={`w-full flex items-center gap-3 p-3 rounded-md hover:bg-gray-700 text-gray-300 ${!isOpen ? 'justify-center mr-0' : 'justify-left'}`}
-              >
-                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center overflow-hidden">
-                  {user?.avatar ? (
-                    <img 
-                      src={user.avatar} 
-                      alt={user.name || 'User'} 
-                      className="w-full h-full object-cover rounded-full"
-                    />
-                  ) : (
-                    <User className="w-5 h-5 text-white" />
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate text-sm">{user?.name || user?.email || 'User'}</p>
-                  <p className="text-gray-400 truncate text-xs">{getCurrentPlanName()}</p>
-                </div>
-              </button>}
-
-              {userMenuOpen && (
-                <div className="absolute bottom-full left-0 mb-1 w-48 bg-[#222222] rounded-md shadow-lg border border-gray-600 py-1 z-10">
-                  <div className="px-4 py-2 border-b border-gray-600">
-                    <p className="text-sm font-medium text-gray-300">{user?.name || user?.email || 'User'}</p>
-                    <p className="text-xs text-gray-400">{getCurrentPlanName()}</p>
-                  </div>
-                  <div className="py-1">
-                    <button 
-                      onClick={() => {
-                        setShowProfileDialog(true);
-                        setUserMenuOpen(false);
-                      }}
-                      className="w-full text-left px-4 py-2 text-sm hover:bg-gray-700 flex items-center gap-2 text-gray-300"
-                    >
-                      <User className="w-4 h-4" />
-                      Profile
-                    </button>
-                    <button className="w-full text-left px-4 py-2 text-sm hover:bg-gray-700 flex items-center gap-2 text-gray-300"
-                      onClick={() =>window.location.href = '/settings'}
-                      >
-                      <Settings className="w-4 h-4" />
-                      Settings
-                    </button>
-                    <button className="w-full text-left px-4 py-2 text-sm hover:bg-gray-700 flex items-center gap-2 text-gray-300">
-                      <HelpCircle className="w-4 h-4" />
-                      Help & Support
-                    </button>
-                  </div>
-                  <div className="py-1 border-t border-gray-600">
-                    <button
-                      onClick={handleLogout}
-                      className="w-full text-left px-4 py-2 text-sm hover:bg-gray-700 flex items-center gap-2 text-gray-300"
-                    >
-                      <LogOut className="w-4 h-4" />
-                      {isLoggingOut ? 'Signing out...' : 'Sign out'}
-                      {isLoggingOut && <Loader2 className="w-4 h-4 animate-spin" />}
-                    </button>
-                  </div>
-                </div>
-              )}
         </div>
-</div>
-  
+      </div>
+
+      {/* User section */}
+      <div className="p-4 border-t border-gray-600">
+        <div className="relative text-gray-100">
+          <button
+            onClick={() => setUserMenuOpen(!userMenuOpen)}
+            className="w-full flex items-center gap-3 p-2 rounded-md  hover:bg-gray-500 hover:text-gray-100"
+          >
+           {isOpen&& <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center overflow-hidden">
+              {user?.avatar ? (
+                <img 
+                  src={user.avatar} 
+                  alt={user.name || 'User'} 
+                  className="w-full h-full object-cover rounded-full"
+                />
+              ) : (
+                <User className="w-5 h-5 text-blue-600" />
+              )}
+            </div>}
+            {isOpen && (
+              <div className="flex-1 min-w-0 hover:text-gray-100">
+                <p className={`font-medium truncate ${isTablet ? 'text-xs' : 'text-sm'}`}>{user?.name || user?.email || 'User'}</p>
+                <p className={`text-gray-100 truncate  ${isTablet ? 'text-xs' : 'text-xs'}`}>{getCurrentPlanName()}</p>
+              </div>
+            )}
+          </button>
+
+          {userMenuOpen && isOpen && (
+            <div className="absolute bottom-full left-0 mb-1 w-48 bg-gray-800 rounded-md shadow-lg border border-gray-500 py-1 z-10">
+              <div className="px-4 py-2 border-b border-gray-500">
+                <p className="text-sm font-medium">{user?.name || user?.email || 'User'}</p>
+                <p className="text-xs text-gray-500">{getCurrentPlanName()}</p>
+              </div>
+              <div className="py-1">
+                <button className="w-full text-left px-4 py-2 text-sm hover:bg-gray-500 flex items-center gap-2">
+                  <User className="w-4 h-4" />
+                  Profile
+                </button>
+                <button 
+                  onClick={() =>window.location.href = '/settings'}
+                  className="w-full text-left px-4 py-2 text-sm hover:bg-gray-500 flex items-center gap-2"
+                >
+                  <Settings className="w-4 h-4" />
+                  Settings
+                </button>
+                <button className="w-full text-left px-4 py-2 text-sm hover:bg-gray-500 flex items-center gap-2">
+                  <HelpCircle className="w-4 h-4" />
+                  Help & Support
+                </button>
+              </div>
+              <div className="py-1 border-t border-gray-500">
+                <button
+                  onClick={handleLogout}
+                  className="w-full text-left px-4 py-2 text-sm hover:bg-gray-500 flex items-center gap-2"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Sign out
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
       
       {/* Delete All Chats Confirmation Modal */}
       {showDeleteAllConfirmation && (
@@ -751,12 +698,6 @@ export default function Sidebar({
           </div>
         </div>
       )}
-
-      {/* User Profile Dialog */}
-      <UserProfileDialog 
-        isOpen={showProfileDialog} 
-        onClose={() => setShowProfileDialog(false)} 
-      />
     </div>
   );
 }

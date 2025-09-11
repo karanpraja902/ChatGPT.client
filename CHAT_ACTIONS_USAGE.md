@@ -19,12 +19,14 @@ import { ChatClient } from '@/lib/chat-client';
 const response = await ChatClient.createChat();
 if (response.success) {
   const chatId = response.data?.chat?.id;
+  console.log('Created chat:', chatId);
 }
 
 // Get user's chats
 const chatsResponse = await ChatClient.getUserChats();
 if (chatsResponse.success) {
   const chats = chatsResponse.data?.chats;
+  console.log('User chats:', chats);
 }
 
 // Add a message to a chat
@@ -57,6 +59,7 @@ function ChatComponent() {
   const handleCreateChat = async () => {
     const chatId = await createChat();
     if (chatId) {
+      console.log('Created chat:', chatId);
     }
   };
 

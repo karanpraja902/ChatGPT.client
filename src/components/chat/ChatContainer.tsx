@@ -413,6 +413,7 @@ if(preview){
     
   )
 }
+console.log("chatContainerMessages:",messages)
   return (
     <div 
       className={`flex-1 overflow-y-auto px-4 py-8`}

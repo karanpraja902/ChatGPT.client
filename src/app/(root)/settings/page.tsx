@@ -7,10 +7,9 @@ import { StripeService } from '@/services/api/stripe';
 import { UserApiService } from '@/services/api/user';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { useSubscription } from '@/contexts/SubscriptionContext';
 
 
-interface subscription {
+interface SubscriptionStatus {
   plan: string;
   status: string;
   currentPeriodEnd?: string;
@@ -24,26 +23,24 @@ const SettingsPageContent = () => {
   const searchParams = useSearchParams();
   const { user, userId, isLoading: authLoading, refreshUser } = useAuth();
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
-  // const [subscription, setsubscription] = useState<subscription | null>(null);
+  const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState('overview');
-  const {subscription} = useSubscription();
   // Use the actual logged-in user ID instead of static ID
   const currentUserId = userId;
+  console.log("settings page user:", user);
 
   // Function to refresh subscription data only (user profile comes from AuthContext)
   const refreshSubscriptionData = async () => {
     try {
       // Fetch subscription status
       if (currentUserId) {
-        // setsubscription(subscription as subscription);
-        // const subscriptionResponse = await StripeService.getsubscription(currentUserId);
-        // console.log('Subscription status refreshed:', subscriptionResponse);
-        // if (subscriptionResponse.success && subscriptionResponse.data) {
-        //   // console.log("subscription Settings Page:", subscription);
-        //   // setsubscription(subscription as subscription);
-        // }
+        const subscriptionResponse = await StripeService.getSubscriptionStatus(currentUserId);
+        console.log('Subscription status refreshed:', subscriptionResponse);
+        if (subscriptionResponse.success && subscriptionResponse.data) {
+          setSubscriptionStatus(subscriptionResponse.data);
+        }
       }
     } catch (err: any) {
       console.error('Failed to refresh subscription data:', err);
@@ -53,14 +50,10 @@ const SettingsPageContent = () => {
   // Fetch subscription status only (user profile comes from AuthContext)
   useEffect(() => {
     const fetchSubscriptionData = async () => {
-
       try {
         setLoading(true);
         setError(null);
-        if(!subscription){
-          await refreshSubscriptionData();
-        }
-        // await refreshSubscriptionData();
+        await refreshSubscriptionData();
       } catch (err: any) {
         console.error('Failed to fetch subscription data:', err);
         setError(err.message || 'Failed to load subscription data');
@@ -151,6 +144,7 @@ const SettingsPageContent = () => {
   const handleSubscriptionClick = async (planKey: string, planName: string) => {
     try {
       setLoadingPlan(planKey);
+      console.log('handleSubscriptionClick:', planKey, planName);
       
       // Different handling for Pro Trial vs paid plans
       if (planKey === 'pro-trial') {
@@ -167,6 +161,7 @@ const SettingsPageContent = () => {
               subscribedAt: new Date(),
               trialEnd: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 days from now
             });
+            console.log('Pro Trial subscription updated:', currentUserId, planName);
             
             // Refresh subscription data
             await refreshSubscriptionData();
@@ -202,15 +197,15 @@ const SettingsPageContent = () => {
 
   // Calculate days left in trial or subscription
   const getDaysLeft = () => {
-    if (subscription?.trialEnd) {
-      const trialEnd = new Date(subscription.trialEnd);
+    if (subscriptionStatus?.trialEnd) {
+      const trialEnd = new Date(subscriptionStatus.trialEnd);
       const now = new Date();
       const diffTime = trialEnd.getTime() - now.getTime();
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       return Math.max(0, diffDays);
     }
-    if (subscription?.currentPeriodEnd) {
-      const periodEnd = new Date(subscription.currentPeriodEnd);
+    if (subscriptionStatus?.currentPeriodEnd) {
+      const periodEnd = new Date(subscriptionStatus.currentPeriodEnd);
       const now = new Date();
       const diffTime = periodEnd.getTime() - now.getTime();
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -221,16 +216,16 @@ const SettingsPageContent = () => {
 
   // Get current plan name from subscription status
   const getCurrentPlan = () => {
-    if (subscription?.plan) {
-      return subscription.plan;
+    if (subscriptionStatus?.plan) {
+      return subscriptionStatus.plan;
     }
     return "Free"; // Default fallback
   };
 
   // Get current plan status
   const getCurrentPlanStatus = () => {
-    if (subscription?.status) {
-      return subscription.status;
+    if (subscriptionStatus?.status) {
+      return subscriptionStatus.status;
     }
     return "inactive";
   };
@@ -242,8 +237,8 @@ const SettingsPageContent = () => {
       daysLeft: getCurrentPlan() === "Pro Trial" ? getDaysLeft() : undefined,
       price: "Free",
       description: "limited access to most features, 14 days free trial",
-      note: getCurrentPlan() === "Pro Trial" && subscription?.trialEnd 
-        ? `Your trial ends on ${new Date(subscription.trialEnd).toLocaleDateString()}.` 
+      note: getCurrentPlan() === "Pro Trial" && subscriptionStatus?.trialEnd 
+        ? `Your trial ends on ${new Date(subscriptionStatus.trialEnd).toLocaleDateString()}.` 
         : getCurrentPlan() === "Pro+" || getCurrentPlan() === "Ultra"
         ? "You already have a higher-tier plan"
         : "Your subscription will start on September 14th.",
@@ -270,8 +265,8 @@ const SettingsPageContent = () => {
       daysLeft: getCurrentPlan() === "Pro+" ? getDaysLeft() : undefined,
       price: "$20/month",
       description: "Access to all features, image generation, and deepresearch",
-      note: getCurrentPlan() === "Pro+" && subscription?.currentPeriodEnd 
-        ? `Your subscription renews on ${new Date(subscription.currentPeriodEnd).toLocaleDateString()}.` 
+      note: getCurrentPlan() === "Pro+" && subscriptionStatus?.currentPeriodEnd 
+        ? `Your subscription renews on ${new Date(subscriptionStatus.currentPeriodEnd).toLocaleDateString()}.` 
         : undefined,
       features: [
         "Access to all features",
@@ -293,8 +288,8 @@ const SettingsPageContent = () => {
       daysLeft: getCurrentPlan() === "Ultra" ? getDaysLeft() : undefined,
       price: "$40/month",
       description: "20x higher limits for OpenAI, Claude, Gemini, Grok models, and early access to advanced features.",
-      note: getCurrentPlan() === "Ultra" && subscription?.currentPeriodEnd 
-        ? `Your subscription renews on ${new Date(subscription.currentPeriodEnd).toLocaleDateString()}.` 
+      note: getCurrentPlan() === "Ultra" && subscriptionStatus?.currentPeriodEnd 
+        ? `Your subscription renews on ${new Date(subscriptionStatus.currentPeriodEnd).toLocaleDateString()}.` 
         : undefined,
       features: [
         "20x higher limits",
@@ -360,7 +355,7 @@ const SettingsPageContent = () => {
     return (
       <div className="min-h-screen bg-gray-700/80 flex items-center justify-center">
         <div className="text-center">
-          <div className="text-red-400 mb-4"></div>
+          <div className="text-red-400 mb-4">⚠️</div>
           <p className="text-gray-100 mb-4">{error}</p>
           <button 
             onClick={() => window.location.reload()} 
@@ -428,7 +423,7 @@ const SettingsPageContent = () => {
                   </div>
 
                   {/* Current Plan Status */}
-                  {subscription && (
+                  {subscriptionStatus && (
                     <div className={`rounded-lg p-3 mb-4 border ${
                       getCurrentPlanStatus() === 'trial' 
                         ? 'bg-blue-900/50 border-blue-400' 
@@ -518,7 +513,7 @@ const SettingsPageContent = () => {
                       </div>
                       
                       {/* Subscription Information */}
-                      {subscription && (
+                      {subscriptionStatus && (
                         <div className="mt-6 pt-6 border-t border-gray-600">
                           <h3 className="font-medium text-gray-100 mb-3">Subscription Information</h3>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -526,11 +521,11 @@ const SettingsPageContent = () => {
                               <div className="space-y-3">
                                 <div>
                                   <label className="text-sm text-gray-300">Current Plan</label>
-                                  <p className="text-gray-100 font-medium">{subscription.plan}</p>
+                                  <p className="text-gray-100 font-medium">{subscriptionStatus.plan}</p>
                                 </div>
                                 <div>
                                   <label className="text-sm text-gray-300">Status</label>
-                                  <p className="text-gray-100 capitalize">{subscription.status}</p>
+                                  <p className="text-gray-100 capitalize">{subscriptionStatus.status}</p>
                                 </div>
                               </div>
                             </div>
@@ -539,14 +534,14 @@ const SettingsPageContent = () => {
                                 <div>
                                   <label className="text-sm text-gray-300">Subscribed On</label>
                                   <p className="text-gray-100">
-                                    {subscription.subscribedAt ? new Date(subscription.subscribedAt).toLocaleDateString() : 'Not available'}
+                                    {subscriptionStatus.subscribedAt ? new Date(subscriptionStatus.subscribedAt).toLocaleDateString() : 'Not available'}
                                   </p>
                                 </div>
-                                {subscription.trialEnd && (
+                                {subscriptionStatus.trialEnd && (
                                   <div>
                                     <label className="text-sm text-gray-300">Trial Ends</label>
                                     <p className="text-gray-100">
-                                      {new Date(subscription.trialEnd).toLocaleDateString()}
+                                      {new Date(subscriptionStatus.trialEnd).toLocaleDateString()}
                                     </p>
                                   </div>
                                 )}
@@ -590,15 +585,15 @@ const SettingsPageContent = () => {
                     </div>
                     
                     {/* Current Plan Summary */}
-                    {subscription && (
+                    {subscriptionStatus && (
                       <div className="mb-6 p-4 bg-gradient-to-r from-blue-900/50 to-purple-900/50 border border-blue-400 rounded-lg">
                         <div className="flex items-center justify-between">
                           <div>
                             <h3 className="font-semibold text-lg text-gray-100">
-                              Current Plan: {subscription.plan}
+                              Current Plan: {subscriptionStatus.plan}
                             </h3>
                             <p className="text-sm text-gray-300 mt-1">
-                              Status: <span className="capitalize font-medium">{subscription.status}</span>
+                              Status: <span className="capitalize font-medium">{subscriptionStatus.status}</span>
                               {getDaysLeft() > 0 && (
                                 <span className="ml-2">
                                   • {getDaysLeft()} days remaining
@@ -608,16 +603,16 @@ const SettingsPageContent = () => {
                           </div>
                           <div className="text-right">
                             <p className="text-sm text-gray-300">
-                              Subscribed on {subscription.subscribedAt ? new Date(subscription.subscribedAt).toLocaleDateString() : 'Unknown'}
+                              Subscribed on {subscriptionStatus.subscribedAt ? new Date(subscriptionStatus.subscribedAt).toLocaleDateString() : 'Unknown'}
                             </p>
-                            {subscription.trialEnd && (
+                            {subscriptionStatus.trialEnd && (
                               <p className="text-sm text-blue-300 font-medium">
-                                Trial ends: {new Date(subscription.trialEnd).toLocaleDateString()}
+                                Trial ends: {new Date(subscriptionStatus.trialEnd).toLocaleDateString()}
                               </p>
                             )}
-                            {subscription.currentPeriodEnd && (
+                            {subscriptionStatus.currentPeriodEnd && (
                               <p className="text-sm text-green-300 font-medium">
-                                Renews: {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
+                                Renews: {new Date(subscriptionStatus.currentPeriodEnd).toLocaleDateString()}
                               </p>
                             )}
                           </div>
