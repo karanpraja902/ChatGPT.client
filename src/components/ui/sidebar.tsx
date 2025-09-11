@@ -244,8 +244,8 @@ export default function Sidebar({
         />
         
         {/* Sidebar overlay */}
-        <div className={`fixed top-0 left-0 h-full bg-[#212121] border border-gray-700 backdrop-blur-sm z-50 transition-transform duration-300 ease-in-out ${
-          isOpen ? 'translate-x-0' : '-translate-x-full'
+        <div className={`fixed top-0 left-0 h-full  border border-gray-700 backdrop-blur-sm z-50 transition-transform duration-300 ease-in-out ${
+          isOpen ? 'translate-x-0 bg-[#181818]' : '-translate-x-full'
         } w-80 max-w-[85vw] lg:hidden`}>
           {/* Mobile header */}
           <div className="p-4 border-b border-gray-700 flex items-center justify-between">
@@ -493,9 +493,9 @@ export default function Sidebar({
 
   // Desktop sidebar - only shown on laptop+ screens (unchanged)
   return (
-    <div className={`hidden lg:block lg:bg-[#212121] border border-gray-700 transition-all duration-300 ease-in-out ${
-      isOpen ? 'w-64' : 'w-20'
-    } flex flex-col h-full`}>
+    <div className={`hidden lg:block  border border-gray-700 transition-all duration-300 ease-in-out ${
+      isOpen ? 'w-64' : 'w-20 lg:bg-[#212121] '
+    } flex flex-col h-full lg:bg-[#181818]`}>
       {/* Sidebar header */}
       <div className="p-4 flex flex-row items-center justify-center">
           {isOpen && (

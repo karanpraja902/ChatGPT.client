@@ -4,11 +4,12 @@ import { PdfApiService, AiApiService } from '@/services/api';
 import type { ModelInfo } from '@/services/api/ai';
 import { getContextStatus, calculateMessageTokens } from '@/services/api/context-manager';
 import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
-import { Paperclip, X, StopCircle, Loader2, Globe, Image as ImageIcon, Code2, FileText, Table, CloudSun, FlaskConical, Wrench, SlidersHorizontal, Settings, Search, Palette, Square, PlusIcon } from 'lucide-react';
+import { Paperclip, X, StopCircle, Loader2, Globe, Image as ImageIcon, Code2, FileText, Table, CloudSun, FlaskConical, Wrench, SlidersHorizontal, Settings, Search, Palette, Square, PlusIcon, Brain } from 'lucide-react';
 import DictationButton from '../ui/DictationButton';
 import { LuCpu } from "react-icons/lu"
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { FaLock, FaLockOpen } from 'react-icons/fa';
+import { ResearchApiService, DeepResearchResult } from '@/services/api/research';
 
 interface ChatInputProps {
   input: string;
@@ -22,6 +23,9 @@ interface ChatInputProps {
   messages: any[];
   model: string;
   setModel: (model: string) => void;
+  onResearchStart?: () => void;
+  onResearchEnd?: () => void;
+  onResearchProgress?: (phase: string, progress: number) => void;
 }
 
 export default function ChatInput({
@@ -35,7 +39,10 @@ export default function ChatInput({
   chatId,
   messages,
   model,
-  setModel
+  setModel,
+  onResearchStart,
+  onResearchEnd,
+  onResearchProgress
 }: ChatInputProps) {
   const [preFile, setPreFile] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState<Boolean>(false)
@@ -85,6 +92,9 @@ export default function ChatInput({
   const [documentMode, setDocumentMode] = useState(false);
   const [imageGenerationMode, setImageGenerationMode] = useState(false);
   const [weatherMode, setWeatherMode] = useState(false);
+  const [deepResearchMode, setDeepResearchMode] = useState(false);
+  const [isResearching, setIsResearching] = useState(false);
+  const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const toolsMenuRef = useRef<HTMLDivElement>(null);
   
   useEffect(() => {
@@ -129,10 +139,10 @@ export default function ChatInput({
   const isSubmitDisabled = useMemo(() => {
     return status === 'streaming' || 
            status === 'preparing' || 
-           (!input.trim() && files.length === 0) || 
+           (!input.trim() && files.length === 0 && !isResearching) || 
            isProcessingPdf || 
            isSending;
-  }, [status, input, files.length, isProcessingPdf, isSending]);
+  }, [status, input, files.length, isProcessingPdf, isSending, isResearching]);
 
   const isFileUploadDisabled = useMemo(() => {
     return webSearchEnabled || documentMode || imageGenerationMode || weatherMode;
@@ -144,8 +154,11 @@ export default function ChatInput({
     if (documentMode) return "Ask about your document...";
     if (imageGenerationMode) return "Describe the image you want to generate...";
     if (weatherMode) return "Enter a city name (e.g., London, New York, Tokyo)...";
+    if (deepResearchMode) {
+      return "Enter your research topic or question...";
+    }
     return "Ask me anything...";
-  }, [isRecording, isProcessingPdf, documentMode, imageGenerationMode, weatherMode]);
+  }, [isRecording, isProcessingPdf, documentMode, imageGenerationMode, weatherMode, deepResearchMode]);
 
   const containerClassName = useMemo(() => {
     // const baseClass ="flex flex-col sm:flex-col gap-1 bg-[#333333] sm:gap-2 md:gap-3 p-1.5 sm:p-2 md:p-3 backdrop-blur-sm rounded-lg sm:rounded-xl md:rounded-4xl shadow-3xl  transition-all duration-300 ";
@@ -154,8 +167,9 @@ export default function ChatInput({
     if (documentMode) return `${baseClass} border-blue-300 bg-gray-500/80`;
     if (imageGenerationMode) return `${baseClass} border-purple-300 bg-purple-50/80`;
     if (weatherMode) return `${baseClass} border-cyan-300 bg-cyan-50/80`;
+    if (deepResearchMode) return `${baseClass} border-purple-500/50 bg-gradient-to-r from-purple-900/20 to-blue-900/20`;
     return `${baseClass} border-white/20`;
-  }, [isRecording, documentMode, imageGenerationMode, weatherMode]);
+  }, [isRecording, documentMode, imageGenerationMode, weatherMode, deepResearchMode]);
   // Load available models on component mount
   useEffect(() => {
     const loadModels = async () => {
@@ -218,6 +232,18 @@ export default function ChatInput({
     setInput(input + transcript);
   };
 
+  // Function to stop ongoing research
+  const handleStopResearch = useCallback(() => {
+    if (progressIntervalRef.current) {
+      clearInterval(progressIntervalRef.current);
+      progressIntervalRef.current = null;
+    }
+    setIsResearching(false);
+    setDeepResearchMode(false);
+    onResearchEnd?.();
+    setIsSending(false);
+  }, [onResearchEnd]);
+
   const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       setPreFile(Array.from(e.target.files))
@@ -247,6 +273,7 @@ export default function ChatInput({
       return;
     }
   }, [setUploadedFiles]);
+
 
   const handleDocumentChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     setError('')
@@ -356,9 +383,15 @@ export default function ChatInput({
   }, [files, uploadedFileMetadata, setUploadedFiles]);
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // If research is ongoing, stop it
+    if (isResearching) {
+      handleStopResearch();
+      return;
+    }
 
     setIsSending(true);
-    e.preventDefault();
     
     if ((input.trim() || files.length > 0) && !isProcessingPdf && status !== 'streaming' && status !== 'preparing') {
       
@@ -412,6 +445,34 @@ export default function ChatInput({
           setTimeout(() => setShowErrorToast(false), 8000);
           return;
         }
+      } else if (deepResearchMode && input.trim()) {
+        // Deep Research mode handling - send user message with research flag
+        const queryText = input.trim();
+        
+        const messageToSend = {
+          content: queryText,
+          parts: [{ type: 'text', text: queryText }],
+          metadata: { 
+            chatId,
+            model,
+            isDeepResearch: true,
+            researchDepth: 'deep'
+          },
+        };
+
+        // Clear input and modes immediately
+        setInput('');
+        setDeepResearchMode(false);
+
+        try {
+          await sendMessage(messageToSend);
+        } catch (error: any) {
+          console.error('Error sending deep research message:', error);
+          setIsSending(false);
+        } finally {
+          setIsSending(false);
+        }
+        return;
       } else {
         // Normal message handling
         const textPart = input.trim() ? [{ type: 'text', text: input }] : [];
@@ -456,7 +517,7 @@ export default function ChatInput({
       
       console.log("message:", messages);
     }
-  }, [input, files, uploadedFileMetadata, isProcessingPdf, status, chatId, model, imageGenerationMode, documentMode, webSearchEnabled, setInput, setUploadedFiles, sendMessage, messages]);
+  }, [input, files, uploadedFileMetadata, isProcessingPdf, status, chatId, model, imageGenerationMode, documentMode, webSearchEnabled, deepResearchMode, setInput, setUploadedFiles, sendMessage, messages, onResearchStart, onResearchEnd, onResearchProgress, isResearching, handleStopResearch]);
 
   const handleToolSelect = useCallback((key: string) => {
     console.log("handleToolSelect")
@@ -529,6 +590,14 @@ export default function ChatInput({
       return;
     }
 
+    if (key === 'research') {
+      if (!documentMode && !webSearchEnabled && !imageGenerationMode && !weatherMode) {
+        setDeepResearchMode(!deepResearchMode);
+      }
+      setShowTools(false);
+      return;
+    }
+
     if (key === 'doc') {
       if(!preFile.length && documentMode&&!webSearchEnabled && !imageGenerationMode) {
         console.log("documentMode:", documentMode);
@@ -549,7 +618,7 @@ export default function ChatInput({
       setInput(input ? input + '\n' + p : p);
     }
     setShowTools(false);
-  }, [documentMode, webSearchEnabled, imageGenerationMode, weatherMode, preFile.length, toolPrompts, input, setInput, hasAdvancedToolsAccess, isLoading]);
+  }, [documentMode, webSearchEnabled, imageGenerationMode, weatherMode, deepResearchMode, preFile.length, toolPrompts, input, setInput, hasAdvancedToolsAccess, isLoading]);
 
   const handleModelSelect = (modelValue: string) => {
     console.log(' Model selection:', { 
@@ -614,11 +683,21 @@ export default function ChatInput({
       const timeout = setTimeout(() => {
         console.log('Timeout: Clearing isSending state after 10 seconds');
         setIsSending(false);
-      }, 5000); // 10 seconds timeout
+      }, 5000); // 5 seconds timeout
 
       return () => clearTimeout(timeout);
     }
   }, [isSending]);
+
+  // Cleanup research interval on component unmount
+  useEffect(() => {
+    return () => {
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+        progressIntervalRef.current = null;
+      }
+    };
+  }, []);
 
 
 
@@ -790,11 +869,12 @@ export default function ChatInput({
                 // className="px-1.5 sm:px-2 md:px-3 py-1 sm:py-1.5 md:py-2 text-xs sm:text-sm text-gray-700 hover:bg-[#555555] rounded-full hover:text-blue-600 hover:border-blue-400 transition-colors relative group/tooltip"
                 className="flex border border-gray-600  items-center gap-2 px-3 py-2   bg-[#2f2f2f] hover:bg-[#3f3f3f]  text-gray-400 rounded-lg transition-colors"
                 title={(() => {
-                  const activeTools = [];
+                  const activeTools: string[] = [];
                   if (webSearchEnabled) activeTools.push('Web Search');
                   if (documentMode) activeTools.push('Document Analysis');
                   if (imageGenerationMode) activeTools.push('Image Generation');
                   if (weatherMode) activeTools.push('Weather');
+                  if (deepResearchMode) activeTools.push('Deep Research');
                   
                   if (activeTools.length === 0) {
                     return "Tools & Options";
@@ -805,11 +885,12 @@ export default function ChatInput({
               >
                 <div className="flex items-center gap-1 sm:gap-2 justify-center text-white">
                   {(() => {
-                    const activeTools = [];
+                    const activeTools: Array<{ icon: React.ComponentType<any>, label: string }> = [];
                     if (webSearchEnabled) activeTools.push({ icon: Globe, label: 'Web Search' });
                     if (documentMode) activeTools.push({ icon: FileText, label: 'Document' });
                     if (imageGenerationMode) activeTools.push({ icon: ImageIcon, label: 'Image Gen' });
                     if (weatherMode) activeTools.push({ icon: CloudSun, label: 'Weather' });
+                    if (deepResearchMode) activeTools.push({ icon: Brain, label: 'Deep Research' });
                     
                     if (activeTools.length === 0) {
                       return <PlusIcon className="w-6 h-6" />;
@@ -938,12 +1019,15 @@ export default function ChatInput({
                       className={`flex items-center justify-between w-full gap-2 px-3 py-2 rounded-lg transition-colors ${
                         documentMode || imageGenerationMode || weatherMode || isLoading || !hasAdvancedToolsAccess
                           ? 'opacity-50 cursor-not-allowed text-gray-400'
+                          : deepResearchMode
+                          ? 'bg-purple-600/80 text-gray-100 hover:bg-purple-700/80'
                           : 'hover:bg-blue-100 hover:text-gray-900'
                       }`}
                     >
                       <span className="flex items-center gap-2">
-                        <FlaskConical className="w-4 h-4" />
+                        <Brain className="w-4 h-4" />
                         Deep Research
+                        {deepResearchMode && <span className="text-xs font-medium">(ON)</span>}
                       </span>
                       {isLoading ? (
                         <div className="w-3 h-3 animate-spin rounded-full border border-gray-400 border-t-transparent" title="Loading subscription..." />
@@ -957,6 +1041,7 @@ export default function ChatInput({
                   </div>
                 </div>
               )}
+              
             </div>
             <div className="flex items-center gap-1 sm:gap-2 md:gap-3">
 
@@ -1074,23 +1159,28 @@ export default function ChatInput({
                 </div>
                 </Square>
                 
-                </div>
+              </div>
               </button>
             ) : (!isRecording && (
               <button
                 type="submit"
-                disabled={isSubmitDisabled}
-                className="px-2 sm:px-3 sm:py-2 md:py-3 bg-white text-black rounded-full hover:from-blue-700 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed transition-colors flex items-center justify-center relative group/tooltip"
-                title="Send Message"
+                disabled={isSubmitDisabled && !isResearching}
+                className={`px-2 sm:px-3 sm:py-2 md:py-3 rounded-full transition-colors flex items-center justify-center relative group/tooltip ${
+                  isResearching 
+                    ? 'bg-white hover:bg-red-600 text-black' 
+                    : 'bg-white text-black hover:from-blue-700 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed'
+                }`}
+                title={isResearching ? "Stop Research" : deepResearchMode ? "Start Deep Research" : "Send Message"}
               >
-                {(isSending || status === 'preparing') ? (
+                {isResearching ? (
+                  <Square className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5" />
+                ) : (isSending || status === 'preparing') ? (
                   <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 animate-spin" />
                 ) : (
                   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg> 
-                  // <ArrowUp01 className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 text-red-400 bg-red-400 rounded-sm " ></ArrowUp01>
                 )}
                 <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover/tooltip:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
-                  {(isSending || status === 'preparing') ? 'Sending...' : 'Send Message'}
+                  {isResearching ? 'Stop Research' : (isSending || status === 'preparing') ? 'Sending...' : deepResearchMode ? 'Start Research' : 'Send Message'}
                 </div>
               </button>
             ))}

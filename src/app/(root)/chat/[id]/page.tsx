@@ -9,7 +9,7 @@ import Weather from '@/components/weather/Weather';
 import type { UploadedClientFile } from '@/services/api/cloudinary';
 import { uploadFilesClient } from '@/services/api/cloudinary';
 import { toast } from 'react-hot-toast';
-import { Loader2, RefreshCw, Copy, Check, Edit, X, FileText, Download, Eye, StopCircle, Menu, Settings } from 'lucide-react';
+import { Loader2, RefreshCw, Copy, Check, Edit, X, FileText, Download, Eye, StopCircle, Menu, Settings, Brain, Target, BarChart3, BookOpen, Clock, Globe, ExternalLink, TrendingUp, AlertTriangle, Lightbulb, ChevronDown, ChevronRight, Bubbles, Circle } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import Sidebar from '@/components/ui/sidebar';
@@ -19,12 +19,16 @@ import { useAuth } from '@/contexts/AuthContext';
 import ChatInput from '@/components/chat/ChatInput';
 import { ChatProvider } from '@/contexts/ChatContext';
 import { addMessageAction, getChatAction, getChatMessagesAction } from '@/lib/chat-actions';
+import { DeepResearchResult, ResearchApiService } from '@/services/api/research';
+const { AuthClient } = await import('@/lib/auth-client');
+import { useRouter } from 'next/navigation';
 // 
 // Helper function to format base64 image data
 
 
 export default function ChatPage() {
   const { userId } = useAuth();
+  const router = useRouter();
 // Timer state variables
   const params = useParams();
   const [chatId, setChatId] = useState<string | null>(null);
@@ -48,6 +52,11 @@ useEffect(() => {
   const responseTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const [userScrolledUp, setUserScrolledUp] = useState(false);
+  
+  // Deep research state
+  const [expandedResearchSections, setExpandedResearchSections] = useState<{[messageId: string]: Set<string>}>({});
+  const [isResearching, setIsResearching] = useState(false);
+  const [researchProgress, setResearchProgress] = useState({ phase: '', progress: 0 });
 
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
@@ -219,6 +228,9 @@ useEffect(() => {
       // Check if this is a weather request
       const isWeatherEnabled = message.metadata?.isWeatherEnabled || false;
 
+      // Check if this is a deep research request
+      const isDeepResearch = message.metadata?.isDeepResearch || false;
+
       // Add user message to chat
       const userMessage = {
         id: Date.now().toString(),
@@ -370,6 +382,113 @@ useEffect(() => {
 
             setMessages(prev => [...prev, errorMessage]);
             setError(new Error('Weather request failed'));
+            return;
+          }
+        }
+
+        // Check if deep research is enabled
+        if (isDeepResearch && message.content) {
+          try {
+            console.log('Performing deep research for:', message.content);
+
+            // Generate execution ID for this research
+            const executionId = `research_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+            // Set research status
+            setIsResearching(true);
+            setStatus('preparing');
+            setStatusSub('Initializing deep research...');
+
+            // Start research progress simulation
+            handleResearchStart();
+            const phases = [
+              'Expanding research queries...',
+              'Searching academic sources...',
+              'Analyzing web content...',
+              'Gathering news articles...',
+              'Synthesizing findings...',
+              'Finalizing research...'
+            ];
+            
+            let currentPhase = 0;
+            const progressInterval = setInterval(() => {
+              if (currentPhase < phases.length) {
+                handleResearchProgress(phases[currentPhase], ((currentPhase + 1) / phases.length) * 100);
+                currentPhase++;
+              }
+            }, 10000);
+
+            // Store execution ID for cancellation
+            (window as any).currentResearchId = executionId;
+
+            // Perform deep research
+            const researchResult = await ResearchApiService.performDeepResearch({
+              query: message.content.trim(),
+              depth: message.metadata?.researchDepth || 'shallow',
+              language: 'en'
+            }, executionId);
+
+            // Clear progress interval
+            clearInterval(progressInterval);
+
+            if (researchResult.success && researchResult.data) {
+              // Create assistant message with research results
+              const assistantMessageId = (Date.now() + 1).toString();
+              const assistantMessage = {
+                id: assistantMessageId,
+                role: 'assistant',
+                parts: [
+                  { type: 'text', text: researchResult.data.formattedSummary }
+                ],
+                metadata: {
+                  isDeepResearch: true,
+                  researchData: researchResult.data,
+                  researchDepth: message.metadata?.researchDepth || 'deep'
+                },
+                createdAt: new Date()
+              };
+
+              setStatus('ready');
+              setMessages(prev => [...prev, assistantMessage]);
+
+              // Save both messages to database
+              try {
+                await saveMessage(chatId as string, userMessage);
+                await saveMessage(chatId as string, assistantMessage);
+              } catch (error) {
+                console.error('Failed to save deep research messages to database:', error);
+              }
+
+              handleResearchEnd();
+              return;
+            } else {
+              throw new Error(researchResult.error || 'Deep research failed');
+            }
+          } catch (error: any) {
+            console.error('Deep research error:', error);
+            setStatus('idle');
+            setIsResearching(false);
+            handleResearchEnd();
+
+            // Clear the stored research ID
+            (window as any).currentResearchId = null;
+
+            // Check if it was cancelled
+            if (error.message?.includes('cancelled')) {
+              console.log('Research was cancelled by user');
+              return; // Don't show error message for cancellation
+            }
+
+            // Create error message
+            const errorMessage = {
+              id: (Date.now() + 1).toString(),
+              role: 'assistant',
+              parts: [{ type: 'text', text: 'Sorry, I encountered an error while performing deep research. Please try again.' }],
+              createdAt: new Date()
+            };
+
+            setMessages(prev => [...prev, errorMessage]);
+            setError(new Error('Deep research failed'));
             return;
           }
         }
@@ -1362,7 +1481,7 @@ useEffect(() => {
     const initializeUser = async () => {
       try {
         // Initialize static user
-        const { AuthClient } = await import('@/lib/auth-client');
+   
         const initResponse = await AuthClient.initializeStaticUser();
         if (initResponse) {
           setIsUserInitialized(true);
@@ -1440,10 +1559,99 @@ useEffect(() => {
         parts: safeMsg.parts || [{ type: 'text', text: safeMsg.content || '' }],
         content: safeMsg.content || '',
         createdAt: safeMsg.timestamp || safeMsg.createdAt || new Date(),
-        files: safeMsg.files || []
+        files: safeMsg.files || [],
+        metadata: safeMsg.metadata || {}
       };
     });
   };
+
+  // Helper functions for research UI
+  const isResearchMessage = (message: any): boolean => {
+    return message.metadata?.isDeepResearch === true;
+  };
+
+  const getResearchData = (message: any): DeepResearchResult | null => {
+    return message.metadata?.researchData || null;
+  };
+
+  const toggleResearchSection = (messageId: string, sectionId: string) => {
+    setExpandedResearchSections(prev => {
+      const messageExpanded = prev[messageId] || new Set();
+      const newExpanded = new Set(messageExpanded);
+      
+      if (newExpanded.has(sectionId)) {
+        newExpanded.delete(sectionId);
+      } else {
+        newExpanded.add(sectionId);
+      }
+      
+      return {
+        ...prev,
+        [messageId]: newExpanded
+      };
+    });
+  };
+
+  const formatDuration = (ms: number): string => {
+    const seconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(seconds / 60);
+    if (minutes > 0) {
+      return `${minutes}m ${seconds % 60}s`;
+    }
+    return `${seconds}s`;
+  };
+
+  const getConfidenceColor = (confidence: number): string => {
+    if (confidence >= 80) return 'text-green-400';
+    if (confidence >= 60) return 'text-yellow-400';
+    return 'text-red-400';
+  };
+
+  const getCompletenessColor = (completeness: number): string => {
+    if (completeness >= 80) return 'text-green-400';
+    if (completeness >= 60) return 'text-yellow-400';
+    return 'text-red-400';
+  };
+
+  // Research handlers
+  const handleResearchStart = useCallback(() => {
+    setIsResearching(true);
+    setResearchProgress({ phase: 'Initializing research...', progress: 0 });
+  }, []);
+
+  const handleResearchEnd = useCallback(() => {
+    setIsResearching(false);
+    setResearchProgress({ phase: '', progress: 0 });
+  }, []);
+
+  const handleResearchProgress = useCallback((phase: string, progress: number) => {
+    setResearchProgress({ phase, progress });
+  }, []);
+
+  const handleCancelResearch = useCallback(async () => {
+    const currentResearchId = (window as any).currentResearchId;
+    if (!currentResearchId) {
+      console.log('No active research to cancel');
+      return;
+    }
+
+    try {
+      console.log('Cancelling research:', currentResearchId);
+      const result = await ResearchApiService.cancelResearch(currentResearchId);
+      
+      if (result.success) {
+        console.log('Research cancelled successfully');
+        setIsResearching(false);
+        setStatus('idle');
+        handleResearchEnd();
+        (window as any).currentResearchId = null;
+      } else {
+        console.error('Failed to cancel research:', result.error);
+      }
+    } catch (error) {
+      console.error('Error cancelling research:', error);
+    }
+  }, [handleResearchEnd]);
 
   // Helper function to generate conversation title
   const getConversationTitle = (messages: any[]) => {
@@ -1528,7 +1736,7 @@ useEffect(() => {
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden bg-[#212121]">
         {/* Header for all screens */}
-        <header className="flex items-center justify-between px-6 py-4 border-b border-gray-700">
+        { <header className="flex items-center justify-between px-6 py-4">
           <div className="flex items-center space-x-3">
             <button
               onClick={toggleSidebar}
@@ -1540,55 +1748,8 @@ useEffect(() => {
             <h1 className="text-white text-lg font-medium">ChatGPT</h1>
           </div>
           
-          <button className="bg-[#6366f1] hover:bg-[#5855eb] text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2">
-            <span>✨</span>
-            <span>Upgrade to pro</span>
-          </button>
-          
-          <button className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors">
-            
-            <Settings className="w-5 h-5" />
-          </button>
-        </header>
-
-        {/* Chat content */}
-        <div className="flex-1 overflow-hidden flex flex-col bg-[#212121]">
-          <div className="flex-1 flex flex-col w-full min-h-0">
-            {/* Welcome Header */}
-            {!messages.length &&!isLoading && (
-              <div className="flex-1 flex flex-col items-center justify-center px-6">
-                <div className="w-full max-w-3xl">
-                  {/* Ready when you are text */}
-              
-                  <div className="text-center mb-8 flex flex-row items-center justify-center">
-                  <img 
-                src="/chatgpt.svg" 
-                alt="ChatGPT" 
-                className="w-10 h-10 mr-2 filter brightness-0 invert"
-              />
-                    <h2 className="text-white text-3xl font-normal">Ready when you are.</h2>
-                  </div>
-                </div>
-              </div>
-            )}
-
-
-               {
-                isLoading && (
-                  <div className="min-h-screen bg-[#212121]  p-4 flex flex-col">
-                    <div className="max-w-5xl mx-auto flex-1 flex flex-col w-full items-center justify-center">
-                      <div className="text-center">
-                        <div className="animate-spin rounded-full h-32 w-32 border-b-4 border-gray-500 mx-auto mb-4"></div>
-                        <p className="text-gray-100">Loading conversation...</p>
-                      </div>
-                    </div>
-                  </div>
-                )
-              }
-
-        {/* Dynamic Title Box - Sticky header that stays visible when scrolling */}
-        {messages.length > 0 && status === 'ready' && (
-          <div className="sticky flex justify-center top-0 z-10 bg-[#212121]">
+{messages.length > 0 ? (
+          <div className="sticky flex justify-center bg-transparent ">
             <div
               className="mx-4 p-3 sm:p-4 rounded-xl sm:rounded-2xl shadow-sm group bg-[#212121] text-gray-200 cursor-pointer hover:shadow-md transition-shadow max-w-full"
               onClick={() => {
@@ -1651,7 +1812,62 @@ useEffect(() => {
             </div>
           </div>
 
-        )}
+        ):(<button 
+          onClick={() => {
+            router.push('/settings');
+          }}
+        className="bg-[#6366f1] hover:bg-[#5855eb] text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2">
+          <span>✨</span>
+          <span>Upgrade to pro</span>
+        </button>)}
+          {/* <button className="bg-[#6366f1] hover:bg-[#5855eb] text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2">
+            <span>✨</span>
+            <span>Upgrade to pro</span>
+          </button> */}
+          
+          <button className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors">
+            
+            <Circle className="w-5 h-5 ml-5" />
+          </button>
+        </header>}
+
+        {/* Chat content */}
+        <div className="flex-1 overflow-hidden flex flex-col bg-[#212121]">
+          <div className="flex-1 flex flex-col w-full min-h-0">
+            {/* Welcome Header */}
+            {!messages.length &&!isLoading && (
+              <div className="flex-1 flex flex-col items-center justify-center px-6">
+                <div className="w-full max-w-3xl">
+                  {/* Ready when you are text */}
+              
+                  <div className="text-center mb-8 flex flex-row items-center justify-center">
+                  <img 
+                src="/chatgpt.svg" 
+                alt="ChatGPT" 
+                className="w-10 h-10 mr-2 filter brightness-0 invert"
+              />
+                    <h2 className="text-white text-3xl font-normal">Ready when you are.</h2>
+                  </div>
+                </div>
+              </div>
+            )}
+
+
+               {
+                isLoading && (
+                  <div className="min-h-screen bg-[#212121]  p-4 flex flex-col">
+                    <div className="max-w-5xl mx-auto flex-1 flex flex-col w-full items-center justify-center">
+                      <div className="text-center">
+                        <div className="animate-spin rounded-full h-32 w-32 border-b-4 border-gray-500 mx-auto mb-4"></div>
+                        <p className="text-gray-100">Loading conversation...</p>
+                      </div>
+                    </div>
+                  </div>
+                )
+              }
+
+        {/* Dynamic Title Box - Sticky header that stays visible when scrolling */}
+        
 
         {/* Chat Container with proper scrolling context */}
         {messages.length > 0 && <div className="flex-1 flex flex-col overflow-hidden bg-gray-700/80">
@@ -2028,7 +2244,6 @@ useEffect(() => {
                               </button>
                               <button
                                 onClick={handleCancelEdit}
-                                className="px-3 py-1 bg-gray-500 text-white text-sm rounded hover:bg-gray-200 hover:text-gray-800 transition-colors"
                               >
                                 Cancel
                               </button>
@@ -2057,7 +2272,134 @@ useEffect(() => {
                                   );
                                 }
 
-                                // For completed messages, use markdown rendering
+                                // For completed messages, check if it's a research message
+                                if (isResearchMessage(message)) {
+                                  const researchData = getResearchData(message);
+                                  const expanded = expandedResearchSections[message.id] || new Set();
+                                  
+                                  return (
+                                    <div key={`${message.id}-research-${index}`} className="w-full space-y-4">
+                                      {/* Research Header */}
+                                      <div className="bg-gradient-to-r from-purple-600/20 to-blue-600/20 rounded-xl border border-purple-500/30 p-4">
+                                        <div className="flex items-center gap-3 mb-3">
+                                          <div className="p-2 bg-purple-600/30 rounded-lg">
+                                            <Brain className="w-5 h-5 text-purple-400" />
+                                          </div>
+                                          <div>
+                                            <div className="flex items-center gap-2 mb-1">
+                                              <h3 className="text-lg font-semibold text-white">Deep Research Results</h3>
+                                              {message.metadata?.researchDepth && (
+                                                <span className="px-2 py-1 bg-purple-600/40 text-purple-200 text-xs font-medium rounded-full capitalize">
+                                                  {message.metadata.researchDepth} Depth
+                                                </span>
+                                              )}
+                                            </div>
+                                            <p className="text-purple-300 text-sm">{researchData?.originalQuery}</p>
+                                          </div>
+                                        </div>
+                                        
+                                        {/* Research Metrics */}
+                                        {researchData && (
+                                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                            <div className="bg-purple-900/30 rounded-lg p-3">
+                                              <div className="flex items-center gap-2 mb-1">
+                                                <Target className="w-4 h-4 text-blue-400" />
+                                                <span className="text-xs text-gray-400">Confidence</span>
+                                              </div>
+                                              <span className={`text-sm font-semibold ${getConfidenceColor(researchData.metadata.confidenceScore)}`}>
+                                                {researchData.metadata.confidenceScore}%
+                                              </span>
+                                            </div>
+                                            
+                                            <div className="bg-purple-900/30 rounded-lg p-3">
+                                              <div className="flex items-center gap-2 mb-1">
+                                                <BarChart3 className="w-4 h-4 text-green-400" />
+                                                <span className="text-xs text-gray-400">Completeness</span>
+                                              </div>
+                                              <span className={`text-sm font-semibold ${getCompletenessColor(researchData.metadata.completeness)}`}>
+                                                {researchData.metadata.completeness}%
+                                              </span>
+                                            </div>
+
+                                            <div className="bg-purple-900/30 rounded-lg p-3">
+                                              <div className="flex items-center gap-2 mb-1">
+                                                <BookOpen className="w-4 h-4 text-orange-400" />
+                                                <span className="text-xs text-gray-400">Sources</span>
+                                              </div>
+                                              <span className="text-sm font-semibold text-white">
+                                                {researchData.metadata.totalSources}
+                                              </span>
+                                            </div>
+
+                                            <div className="bg-purple-900/30 rounded-lg p-3">
+                                              <div className="flex items-center gap-2 mb-1">
+                                                <Clock className="w-4 h-4 text-yellow-400" />
+                                                <span className="text-xs text-gray-400">Duration</span>
+                                              </div>
+                                              <span className="text-sm font-semibold text-white">
+                                                {formatDuration(researchData.metadata.researchDuration)}
+                                              </span>
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+
+                                      {/* Research Summary */}
+                                      {researchData && (
+                                        <div className="bg-[#1a1a1a] rounded-xl border border-gray-700 p-6">
+                                          <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                                            <Lightbulb className="w-5 h-5 text-yellow-400" />
+                                            Executive Summary
+                                          </h4>
+                                          <div className="bg-[#2a2a2a] rounded-lg p-4 border border-gray-600 mb-4">
+                                            <p className="text-gray-300 leading-relaxed">{researchData.synthesis.summary}</p>
+                                          </div>
+
+                                          {/* Key Insights Preview */}
+                                          <h5 className="text-md font-semibold text-white mb-3">Key Insights</h5>
+                                          <div className="space-y-2">
+                                            {researchData.synthesis.keyInsights.slice(0, 3).map((insight, idx) => (
+                                              <div key={idx} className="flex items-start gap-3 bg-blue-500/10 rounded-lg p-3 border border-blue-500/20">
+                                                <div className="w-5 h-5 rounded-full bg-blue-500/30 flex items-center justify-center text-blue-400 text-xs font-medium mt-0.5">
+                                                  {idx + 1}
+                                                </div>
+                                                <p className="text-gray-300 text-sm">{insight}</p>
+                                              </div>
+                                            ))}
+                                            {researchData.synthesis.keyInsights.length > 3 && (
+                                              <div className="text-center text-gray-400 text-sm">
+                                                +{researchData.synthesis.keyInsights.length - 3} more insights available
+                                              </div>
+                                            )}
+                                          </div>
+
+                                          {/* Top Sources */}
+                                          <h5 className="text-md font-semibold text-white mb-3 mt-6">Top Sources</h5>
+                                          <div className="space-y-2">
+                                            {researchData.sources.slice(0, 5).map((source, idx) => (
+                                              <div key={idx} className="bg-[#2a2a2a] rounded-lg p-3 border border-gray-600">
+                                                <a
+                                                  href={source.url}
+                                                  target="_blank"
+                                                  rel="noopener noreferrer"
+                                                  className="text-blue-400 hover:text-blue-300 font-medium transition-colors flex items-center gap-2 text-sm"
+                                                >
+                                                  {source.title}
+                                                  <ExternalLink className="w-3 h-3" />
+                                                </a>
+                                                <div className="flex items-center gap-4 mt-1 text-xs text-gray-500">
+                                                  <span>Credibility: {Math.round(source.credibility * 100)}%</span>
+                                                </div>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                }
+
+                                // For regular completed messages, use markdown rendering
                                 return (
                                   <div key={`${message.id}-text-${index}`} className="w-full whitespace-pre-wrap leading-relaxed markdown text-gray-200">
                                     <ReactMarkdown remarkPlugins={[remarkGfm]}>
@@ -2124,7 +2466,7 @@ useEffect(() => {
             </div>
           )}
 <div className="ml-2 px-4">
-          {status !== 'idle'  && status !== 'ready' && (
+          {status !== 'idle' &&!isResearching && status !== 'ready' && (
             <div className="mt-2 p-2    rounded-xl border-2 border-gray-400 shadow-lg backdrop-blur-sm bg-opacity-80 animate-fadeIn">
               <div className="flex items-center gap-3">
                 <div className="relative">
@@ -2158,6 +2500,55 @@ useEffect(() => {
                     Time: {(responseTime / 1000).toFixed(2)}s
                   </span>
                 )}
+              </div>
+            </div>
+          )}
+
+          {/* Research Progress Indicator */}
+          {isResearching && (
+            <div className="mt-2 p-4 rounded-xl border-2 border-gray-400 shadow-lg backdrop-blur-sm bg-gradient-to-r from-gray-600/20 to-gray-600/20 animate-fadeIn">
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <Brain className="w-6 h-6 animate-pulse text-gray-400" />
+                  <div className="absolute inset-0 rounded-full opacity-30 animate-ping bg-gray-400"></div>
+                </div>
+                <div className="flex flex-col flex-1">
+                  <span className="text-gray-200 font-medium flex items-center">
+                    Deep Research in Progress
+                    <span className="flex ml-2">
+                      <span className="animate-bounce delay-100 text-gray-300">.</span>
+                      <span className="animate-bounce delay-300 text-gray-300">.</span>
+                      <span className="animate-bounce delay-500 text-gray-300">.</span>
+                    </span>
+                  </span>
+                  {researchProgress.phase && (
+                    <span className="text-gray-300 text-sm mt-1 animate-fadeIn">
+                      {researchProgress.phase}
+                    </span>
+                  )}
+                  {researchProgress.progress > 0 && (
+                    <div className="mt-2 w-full bg-gray-900/30 rounded-full h-2">
+                      <div 
+                        className="bg-gray-200 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${researchProgress.progress}%` }}
+                      />
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="text-gray-200 text-sm">
+                    <Clock className="w-4 h-4 inline mr-1" />
+                    This may take several minutes
+                  </div>
+                  <button
+                    onClick={handleCancelResearch}
+                    className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-sm rounded-lg transition-colors flex items-center gap-2"
+                    title="Stop Research"
+                  >
+                    <StopCircle className="w-4 h-4" />
+                    Stop
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -2199,6 +2590,9 @@ useEffect(() => {
             messages={messages}
             setModel={setModel}
             model={model}
+            onResearchStart={handleResearchStart}
+            onResearchEnd={handleResearchEnd}
+            onResearchProgress={handleResearchProgress}
           />
         </SubscriptionProvider>
         </div>
