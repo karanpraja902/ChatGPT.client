@@ -6,7 +6,7 @@ import { AuthProvider } from '@/contexts/AuthContext';
 
 
 export const metadata: Metadata = {
-  title: "DeepSeek AI",
+  title: "ChatGPT",
   description: "AI-powered chat application",
 };
 
