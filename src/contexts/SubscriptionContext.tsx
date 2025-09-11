@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { UserApiService } from '@/services/api/user';
 
 interface Subscription {
@@ -37,7 +37,7 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const refreshSubscription = async () => {
+  const refreshSubscription = useCallback(async () => {
     try {
       console.log('🔄 Refreshing subscription for userId:', userId);
       const profileResponse = await UserApiService.getUserProfile(userId);
@@ -52,7 +52,7 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
     } catch (error) {
       console.error('Failed to refresh subscription:', error);
     }
-  };
+  }, [userId]);
 
   const hasAccess = (feature: 'openrouter' | 'advanced_tools'): boolean => {
     console.log('🔒 hasAccess called for:', feature);
@@ -103,7 +103,7 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
 
   useEffect(() => {
     refreshSubscription().finally(() => setIsLoading(false));
-  }, [userId]);
+  }, [userId, refreshSubscription]);
 
   const value: SubscriptionContextType = {
     subscription,

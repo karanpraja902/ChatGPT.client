@@ -286,7 +286,7 @@ export default function ChatGPTPage() {
                             </>
                           ) : (
                             <>
-                              You've reached the free message limit.
+                              You&apos;ve reached the free message limit.
                               <button
                                 onClick={() => setShowLoginDialog(true)}
                                 className="ml-2 text-blue-400 hover:text-blue-300 underline"

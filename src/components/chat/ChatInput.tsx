@@ -187,7 +187,7 @@ export default function ChatInput({
     };
 
     loadModels();
-  }, []); // Only run once on mount, not when model changes
+  }, [model, setModel]); // Include model and setModel as dependencies
 
   // Debug model changes
   useEffect(() => {
@@ -481,7 +481,7 @@ export default function ChatInput({
       
       console.log("message:", messages);
     }
-  }, [input, files, uploadedFileMetadata, isProcessingPdf, status, chatId, model, imageGenerationMode, documentMode, webSearchEnabled, setInput, setUploadedFiles, sendMessage, messages]);
+  }, [input, files, uploadedFileMetadata, isProcessingPdf, status, chatId, model, imageGenerationMode, documentMode, webSearchEnabled, weatherMode, setInput, setUploadedFiles, sendMessage, messages]);
 
   const handleToolSelect = useCallback((key: string) => {
     console.log("handleToolSelect")

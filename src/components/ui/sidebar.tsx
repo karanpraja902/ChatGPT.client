@@ -1,6 +1,7 @@
 'use client';
 import React, { useEffect } from 'react';
 import { useState } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import {
   MessageSquare, 
@@ -350,9 +351,11 @@ export default function Sidebar({
               >
                 <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center overflow-hidden">
                   {user?.avatar ? (
-                    <img 
+                    <Image 
                       src={user.avatar} 
                       alt={user.name || 'User'} 
+                      width={32}
+                      height={32}
                       className="w-full h-full object-cover rounded-full"
                     />
                   ) : (
@@ -597,9 +600,11 @@ export default function Sidebar({
           >
            {isOpen&& <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center overflow-hidden">
               {user?.avatar ? (
-                <img 
+                <Image 
                   src={user.avatar} 
                   alt={user.name || 'User'} 
+                  width={32}
+                  height={32}
                   className="w-full h-full object-cover rounded-full"
                 />
               ) : (

@@ -203,7 +203,7 @@ Would you like me to elaborate on any specific aspect of your question?`;
                 <div className="bg-[#2d2d2d] rounded-lg p-5 border border-gray-700 hover:border-gray-600 transition-colors">
                   <h3 className="font-semibold text-white mb-3">Examples</h3>
                   <p className="text-sm text-gray-400">
-                    "Explain quantum computing in simple terms"
+                    &ldquo;Explain quantum computing in simple terms&rdquo;
                   </p>
                 </div>
                 <div className="bg-[#2d2d2d] rounded-lg p-5 border border-gray-700 hover:border-gray-600 transition-colors">

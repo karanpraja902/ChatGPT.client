@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { X, User, Mail, Calendar, Crown, Edit, Save, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
@@ -82,9 +83,11 @@ export default function UserProfileDialog({ isOpen, onClose }: UserProfileDialog
           <div className="flex items-center gap-4">
             <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center overflow-hidden">
               {user?.avatar ? (
-                <img 
+                <Image 
                   src={user.avatar} 
                   alt={user.name || 'User'} 
+                  width={64}
+                  height={64}
                   className="w-full h-full object-cover rounded-full"
                 />
               ) : (
