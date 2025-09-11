@@ -29,6 +29,7 @@
     "class-variance-authority": "^0.7.1",
     "cloudinary": "^2.7.0",
     "clsx": "^2.1.1",
+    "install": "^0.13.0",
     "langchain": "^0.3.31",
     "lucide-react": "^0.539.0",
     "mem0ai": "^2.1.37",
