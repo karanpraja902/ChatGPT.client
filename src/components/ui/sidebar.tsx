@@ -298,7 +298,7 @@ export default function Sidebar({
           </div>
 
           {/* Recent Chats */}
-          <div className="flex-1 overflow-y-auto max-h-[55vh]">
+          <div className="flex-1 overflow-y-auto max-h-[50vh]">
             <div className="p-4 overflow-y-auto">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Recent Chats</h2>
